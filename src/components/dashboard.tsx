@@ -12,7 +12,6 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react';
-import Image from 'next/image';
 import type { OnboardingData } from '@/lib/types';
 import { suggestLearningPlan, type SuggestLearningPlanOutput } from '@/ai/flows/suggest-learning-plan';
 import { aggregateLearningResources, type AggregateLearningResourcesOutput } from '@/ai/flows/aggregate-learning-resources';
@@ -32,8 +31,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
   SidebarProvider,
+  SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useToast } from '@/hooks/use-toast';
@@ -41,10 +40,18 @@ import { Logo } from './icons';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Checkbox } from './ui/checkbox';
+import { addDays } from 'date-fns';
 
 type DashboardProps = {
   userData: OnboardingData;
 };
+
+type Task = {
+    id: number;
+    text: string;
+    completed: boolean;
+}
 
 const progressData = [
   { name: "Week 1", tasks: 4 },
@@ -55,8 +62,9 @@ const progressData = [
 ];
 
 export default function Dashboard({ userData }: DashboardProps) {
-  const [date, setDate] = React.useState<Date | undefined>(new Date());
+  const [daysOff, setDaysOff] = React.useState<Date[]>([]);
   const [dailyPlan, setDailyPlan] = React.useState<SuggestLearningPlanOutput | null>(null);
+  const [tasks, setTasks] = React.useState<Task[]>([]);
   const [resources, setResources] = React.useState<AggregateLearningResourcesOutput | null>(null);
   const [isPlanLoading, setIsPlanLoading] = React.useState(false);
   const [isResourcesLoading, setIsResourcesLoading] = React.useState(false);
@@ -64,6 +72,14 @@ export default function Dashboard({ userData }: DashboardProps) {
   const [isPlanDialogOpen, setIsPlanDialogOpen] = React.useState(false);
 
   const { toast } = useToast();
+  
+  const handleDayClick = (day: Date) => {
+    setDaysOff(prev => 
+      prev.some(d => d.getTime() === day.getTime())
+        ? prev.filter(d => d.getTime() !== day.getTime())
+        : [...prev, day]
+    );
+  };
 
   const handleCheckinSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -81,6 +97,7 @@ export default function Dashboard({ userData }: DashboardProps) {
         dailyPlans,
       });
       setDailyPlan(plan);
+      setTasks(plan.learningPlan.map((task, index) => ({ id: index, text: task, completed: false })));
       setIsPlanDialogOpen(true);
     } catch (error) {
       console.error(error);
@@ -98,8 +115,11 @@ export default function Dashboard({ userData }: DashboardProps) {
     if (!dailyPlan) return;
     setIsResourcesLoading(true);
     try {
+      const completedTasks = tasks.filter(t => t.completed).map(t => t.text).join(', ');
+      const objective = completedTasks.length > 0 ? `Based on completing: ${completedTasks}, what's next for ${userData.learningGoal}?` : userData.learningGoal;
+      
       const result = await aggregateLearningResources({
-        learningObjective: userData.learningGoal,
+        learningObjective: objective
       });
       setResources(result);
     } catch (error) {
@@ -112,6 +132,14 @@ export default function Dashboard({ userData }: DashboardProps) {
     } finally {
       setIsResourcesLoading(false);
     }
+  };
+
+  const handleTaskToggle = (taskId: number) => {
+    setTasks(prevTasks => 
+        prevTasks.map(task => 
+            task.id === taskId ? { ...task, completed: !task.completed } : task
+        )
+    );
   };
 
   return (
@@ -127,22 +155,28 @@ export default function Dashboard({ userData }: DashboardProps) {
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive>
-                  <BarChart3 />
-                  Dashboard
-                </SidebarMenuButton>
+                <a href="#dashboard">
+                  <SidebarMenuButton isActive>
+                    <BarChart3 />
+                    Dashboard
+                  </SidebarMenuButton>
+                </a>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <BookOpen />
-                  My Plan
-                </SidebarMenuButton>
+                <a href="#progress">
+                  <SidebarMenuButton>
+                    <BookOpen />
+                    My Progress
+                  </SidebarMenuButton>
+                </a>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <CalendarDays />
-                  Calendar
-                </SidebarMenuButton>
+                <a href="#calendar">
+                  <SidebarMenuButton>
+                    <CalendarDays />
+                    Calendar
+                  </SidebarMenuButton>
+                </a>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
@@ -151,10 +185,10 @@ export default function Dashboard({ userData }: DashboardProps) {
             <div className="flex items-center gap-3 p-2">
               <Avatar>
                 <AvatarImage src={`https://i.pravatar.cc/150?u=${userData.gender}`} alt="User" />
-                <AvatarFallback>U</AvatarFallback>
+                <AvatarFallback>{userData.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <span className="text-sm font-medium">Welcome!</span>
+                <span className="text-sm font-medium">Welcome, {userData.name}!</span>
                 <span className="text-xs text-muted-foreground">Age: {userData.age}</span>
               </div>
             </div>
@@ -163,7 +197,7 @@ export default function Dashboard({ userData }: DashboardProps) {
         <SidebarInset className="bg-background">
           <header className="flex items-center justify-between p-4 border-b">
             <SidebarTrigger className="md:hidden" />
-            <h1 className="text-2xl font-bold font-headline">Dashboard</h1>
+            <h1 id="dashboard" className="text-2xl font-bold font-headline">Dashboard</h1>
             <Dialog open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -197,7 +231,7 @@ export default function Dashboard({ userData }: DashboardProps) {
             <Card className="lg:col-span-3 bg-card/80 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="font-headline">Welcome Back!</CardTitle>
+                  <CardTitle className="font-headline">Welcome Back, {userData.name}!</CardTitle>
                   <CardDescription>
                     Ready to master <span className="font-semibold text-primary">{userData.learningGoal}</span>?
                   </CardDescription>
@@ -219,7 +253,7 @@ export default function Dashboard({ userData }: DashboardProps) {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2">
+            <Card id="progress" className="lg:col-span-2">
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2"><BarChart3/> Progress Overview</CardTitle>
                     <CardDescription>Your task completion over the last weeks.</CardDescription>
@@ -262,17 +296,28 @@ export default function Dashboard({ userData }: DashboardProps) {
                 </Card>
             </div>
 
-            <Card className="lg:col-span-3">
+            <Card id="calendar" className="lg:col-span-3">
               <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2"><CalendarDays/> Learning Calendar</CardTitle>
-                <CardDescription>Your personalized learning journey.</CardDescription>
+                <CardDescription>Select your days off. Your plan will adapt.</CardDescription>
               </CardHeader>
               <CardContent className="flex justify-center">
                 <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
+                  mode="multiple"
+                  min={0}
+                  selected={daysOff}
+                  onSelect={setDaysOff}
+                  onDayClick={handleDayClick}
                   className="rounded-md border"
+                  modifiers={{
+                    off: daysOff,
+                  }}
+                  modifiersStyles={{
+                    off: {
+                      backgroundColor: 'hsl(var(--destructive))',
+                      color: 'hsl(var(--destructive-foreground))',
+                    },
+                  }}
                 />
               </CardContent>
             </Card>
@@ -283,11 +328,26 @@ export default function Dashboard({ userData }: DashboardProps) {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-headline flex items-center gap-2"><Sparkles className="text-primary"/> Your Plan for Today</DialogTitle>
-            <DialogDescription>Here is a personalized learning plan based on your input.</DialogDescription>
+            <DialogDescription>Here is a personalized learning plan. Check off tasks as you complete them.</DialogDescription>
           </DialogHeader>
-          <div className="prose prose-sm max-w-none text-foreground text-base leading-relaxed">
-            <p>{dailyPlan?.learningPlan}</p>
+          <div className="space-y-4 py-4">
+            {tasks.map((task) => (
+              <div key={task.id} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`task-${task.id}`}
+                  checked={task.completed}
+                  onCheckedChange={() => handleTaskToggle(task.id)}
+                />
+                <label
+                  htmlFor={`task-${task.id}`}
+                  className={`text-sm font-medium leading-none ${task.completed ? 'line-through text-muted-foreground' : ''}`}
+                >
+                  {task.text}
+                </label>
+              </div>
+            ))}
           </div>
+
           {resources && (
             <div className="mt-4 space-y-2">
               <h4 className="font-semibold font-headline">Helpful Resources</h4>
@@ -300,9 +360,9 @@ export default function Dashboard({ userData }: DashboardProps) {
           )}
           <div className="flex justify-end gap-2 mt-4">
               <Button variant="ghost" onClick={() => setIsPlanDialogOpen(false)}>Close</Button>
-              <Button onClick={handleFindResources} disabled={isResourcesLoading}>
+              <Button onClick={handleFindResources} disabled={isResourcesLoading || tasks.every(t => !t.completed)}>
                 {isResourcesLoading ? <Loader2 className="mr-2 size-4 animate-spin"/> : <Newspaper className="mr-2 size-4" />}
-                Find Resources
+                {tasks.every(t => !t.completed) ? 'Complete a task first' : 'Adjust Plan & Find Resources'}
               </Button>
           </div>
         </DialogContent>

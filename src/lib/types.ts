@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const OnboardingSchema = z.object({
+  name: z.string().min(1, "Name is required."),
   gender: z.string().min(1, "Gender is required."),
   age: z.coerce.number().min(1, "Age is required.").max(120),
   learningGoal: z.string().min(3, "Learning goal is required."),

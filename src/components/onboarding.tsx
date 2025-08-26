@@ -22,6 +22,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const form = useForm<OnboardingData>({
     resolver: zodResolver(OnboardingSchema),
     defaultValues: {
+      name: '',
       gender: '',
       age: 25,
       learningGoal: '',
@@ -48,6 +49,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <CardDescription>Tell us a bit about yourself to create your personalized learning path.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+              <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Name or Nickname</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Alex" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               <FormField
                 control={form.control}
                 name="learningGoal"

@@ -12,6 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestLearningPlanInputSchema = z.object({
+  name: z.string().describe("The user's name or nickname."),
   gender: z.string().describe("The user's gender."),
   age: z.number().describe('The user age.'),
   preferences: z.string().describe('The user preferences.'),
@@ -24,7 +25,7 @@ const SuggestLearningPlanInputSchema = z.object({
 export type SuggestLearningPlanInput = z.infer<typeof SuggestLearningPlanInputSchema>;
 
 const SuggestLearningPlanOutputSchema = z.object({
-  learningPlan: z.string().describe('A suggested learning plan for the day.'),
+  learningPlan: z.array(z.string()).describe('A list of suggested learning tasks for the day.'),
 });
 export type SuggestLearningPlanOutput = z.infer<typeof SuggestLearningPlanOutputSchema>;
 
@@ -38,6 +39,7 @@ const prompt = ai.definePrompt({
   output: {schema: SuggestLearningPlanOutputSchema},
   prompt: `You are a personalized learning plan assistant. Based on the user's information, mood, and daily plans, suggest a learning plan or activity for the day to help them achieve their learning goal.
 
+User's Name: {{{name}}}
 User's Gender: {{{gender}}}
 User's Age: {{{age}}}
 User's Preferences: {{{preferences}}}
@@ -47,7 +49,7 @@ Learning Goal: {{{learningGoal}}}
 Current Mood: {{{mood}}}
 Daily Plans: {{{dailyPlans}}}
 
-Suggest a detailed learning plan for the day that is tailored to the user's current state and long-term goals. Include specific activities and resources, if possible.`,
+Suggest a detailed, step-by-step learning plan for the day that is tailored to the user's current state and long-term goals. Return the plan as a list of tasks.`,
 });
 
 const suggestLearningPlanFlow = ai.defineFlow(
