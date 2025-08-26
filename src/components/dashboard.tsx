@@ -16,7 +16,9 @@ import {
 import type { OnboardingData } from '@/lib/types';
 import { suggestLearningPlan, type SuggestLearningPlanOutput } from '@/ai/flows/suggest-learning-plan';
 import { aggregateLearningResources, type AggregateLearningResourcesOutput } from '@/ai/flows/aggregate-learning-resources';
+import { suggestFullLearningPlan, type SuggestFullLearningPlanOutput } from '@/ai/flows/suggest-full-learning-plan';
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -71,7 +73,11 @@ export default function Dashboard({ userData }: DashboardProps) {
   const [isPlanLoading, setIsPlanLoading] = React.useState(false);
   const [isResourcesLoading, setIsResourcesLoading] = React.useState(false);
   const [isCheckinOpen, setIsCheckinOpen] = React.useState(false);
-  const [isPlanDialogOpen, setIsPlanDialogOpen] = React.useState(false);
+  const [isDailyPlanOpen, setIsDailyPlanOpen] = React.useState(false);
+  const [isFullPlanOpen, setIsFullPlanOpen] = React.useState(false);
+  const [lastCheckinDate, setLastCheckinDate] = React.useState<Date | null>(null);
+  const [fullPlan, setFullPlan] = React.useState<SuggestFullLearningPlanOutput | null>(null);
+  const [isFullPlanLoading, setIsFullPlanLoading] = React.useState(false);
 
   const { toast } = useToast();
   
@@ -82,6 +88,24 @@ export default function Dashboard({ userData }: DashboardProps) {
         : [...prev, day]
     );
   };
+  
+  const handleGenerateFullPlan = async () => {
+    setIsFullPlanLoading(true);
+    setIsFullPlanOpen(true);
+    try {
+        const plan = await suggestFullLearningPlan(userData);
+        setFullPlan(plan);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: 'destructive',
+            title: 'Error generating full plan',
+            description: 'Could not generate a full learning plan. Please try again later.',
+        });
+    } finally {
+        setIsFullPlanLoading(false);
+    }
+  }
 
   const handleCheckinSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,8 +115,11 @@ export default function Dashboard({ userData }: DashboardProps) {
 
     setIsPlanLoading(true);
     setIsCheckinOpen(false);
+    setIsDailyPlanOpen(true); // Open the daily plan dialog immediately
+    setLastCheckinDate(startOfDay(new Date()));
 
     try {
+      // Generate the plan
       const plan = await suggestLearningPlan({
         ...userData,
         mood,
@@ -100,8 +127,15 @@ export default function Dashboard({ userData }: DashboardProps) {
       });
       setDailyPlan(plan);
       setTasks(plan.learningPlan.map((task, index) => ({ id: index, text: task, completed: false })));
-      setResources(null); // Reset resources for the new plan
-      setIsPlanDialogOpen(true);
+      
+      // Immediately find resources
+      setIsResourcesLoading(true);
+      const resourceResult = await aggregateLearningResources({
+        learningObjective: userData.learningGoal
+      });
+      setResources(resourceResult);
+      setIsResourcesLoading(false);
+
     } catch (error) {
       console.error(error);
       toast({
@@ -109,31 +143,9 @@ export default function Dashboard({ userData }: DashboardProps) {
         title: 'Error generating plan',
         description: 'Could not generate a learning plan. Please try again later.',
       });
+      setIsDailyPlanOpen(false); // Close dialog on error
     } finally {
       setIsPlanLoading(false);
-    }
-  };
-
-  const handleFindResources = async () => {
-    if (!dailyPlan) return;
-    setIsResourcesLoading(true);
-    try {
-      const completedTasks = tasks.filter(t => t.completed).map(t => t.text).join(', ');
-      const objective = completedTasks.length > 0 ? `Based on completing: ${completedTasks}, what's next for ${userData.learningGoal}?` : userData.learningGoal;
-      
-      const result = await aggregateLearningResources({
-        learningObjective: objective
-      });
-      setResources(result);
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Error finding resources',
-        description: 'Could not find learning resources. Please try again later.',
-      });
-    } finally {
-      setIsResourcesLoading(false);
     }
   };
 
@@ -153,6 +165,16 @@ export default function Dashboard({ userData }: DashboardProps) {
   };
   
   const allTasksCompleted = tasks.length > 0 && tasks.every(t => t.completed);
+
+  const hasCheckedInToday = lastCheckinDate?.getTime() === startOfDay(new Date()).getTime();
+  
+  const handleDailyButtonClick = () => {
+    if (hasCheckedInToday) {
+        setIsDailyPlanOpen(true);
+    } else {
+        setIsCheckinOpen(true);
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -211,16 +233,12 @@ export default function Dashboard({ userData }: DashboardProps) {
             <SidebarTrigger className="md:hidden" />
             <h1 id="dashboard" className="text-2xl font-bold font-headline">Dashboard</h1>
             <div className="flex items-center gap-2">
-              {dailyPlan && (
-                <Button variant="outline" onClick={() => setIsPlanDialogOpen(true)}>View Full Plan</Button>
-              )}
+              <Button variant="outline" onClick={handleGenerateFullPlan}>View Full Plan</Button>
+              <Button onClick={handleDailyButtonClick}>
+                {hasCheckedInToday ? <Target className="mr-2 size-4"/> : <Sparkles className="mr-2 size-4" />}
+                {hasCheckedInToday ? "Today's Goal" : "Daily Check-in"}
+              </Button>
               <Dialog open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Sparkles className="mr-2 size-4" />
-                    Daily Check-in
-                  </Button>
-                </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle className="font-headline">How are you today?</DialogTitle>
@@ -262,9 +280,9 @@ export default function Dashboard({ userData }: DashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">
-                  <Progress value={ (15 / userData.learningDuration) * 100 } className="h-3" />
+                  <Progress value={ (completedDays.length / userData.learningDuration) * 100 } className="h-3" />
                   <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                    Day 15 / {userData.learningDuration}
+                    Day {completedDays.length} / {userData.learningDuration}
                   </span>
                 </div>
               </CardContent>
@@ -292,18 +310,21 @@ export default function Dashboard({ userData }: DashboardProps) {
                         <CardTitle className="font-headline flex items-center gap-2"><Target/>Today's Goal</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {(tasks.length > 0 ? tasks.slice(0, 2) : [
-                            { text: "Chapter 3: Advanced React Hooks", subtext: "Complete the exercises on `useMemo`." },
-                            { text: "Practice Project", subtext: "Refactor the state management." },
-                        ]).map((task, index) => (
-                             <div key={index} className="flex items-start gap-3">
-                                <CheckCircle2 className="text-green-500 mt-1 size-5 shrink-0"/>
-                                <div>
-                                    <h4 className="font-semibold">{typeof task === 'object' && 'text' in task ? task.text : task}</h4>
-                                    {typeof task === 'object' && 'subtext' in task && <p className="text-sm text-muted-foreground">{task.subtext}</p>}
-                                </div>
+                        {hasCheckedInToday && tasks.length > 0 ? (
+                             tasks.slice(0, 2).map((task, index) => (
+                                <div key={index} className="flex items-start gap-3">
+                                   <CheckCircle2 className={`mt-1 size-5 shrink-0 ${task.completed ? 'text-green-500' : 'text-muted-foreground'}`}/>
+                                   <div>
+                                       <h4 className="font-semibold">{task.text}</h4>
+                                   </div>
+                               </div>
+                           ))
+                        ) : (
+                            <div className="text-muted-foreground">
+                                <p>No plan generated for today.</p>
+                                <p>Click on "Daily Check-in" to get started!</p>
                             </div>
-                        ))}
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -352,55 +373,102 @@ export default function Dashboard({ userData }: DashboardProps) {
           </main>
         </SidebarInset>
       </div>
-      <Dialog open={isPlanDialogOpen} onOpenChange={setIsPlanDialogOpen}>
+
+      <Dialog open={isDailyPlanOpen} onOpenChange={setIsDailyPlanOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-headline flex items-center gap-2"><Sparkles className="text-primary"/> Your Plan for Today</DialogTitle>
             <DialogDescription>Here is a personalized learning plan. Check off tasks as you complete them.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {tasks.map((task) => (
-              <div key={task.id} className="flex items-center space-x-3">
-                <Checkbox
-                  id={`task-${task.id}`}
-                  checked={task.completed}
-                  onCheckedChange={() => handleTaskToggle(task.id)}
-                />
-                <label
-                  htmlFor={`task-${task.id}`}
-                  className={`text-sm font-medium leading-none ${task.completed ? 'line-through text-muted-foreground' : ''}`}
-                >
-                  {task.text}
-                </label>
-              </div>
-            ))}
-          </div>
-
-          {resources && (
-            <div className="mt-4 space-y-2">
-              <h4 className="font-semibold font-headline">Helpful Resources</h4>
-              <ul className="list-disc pl-5 space-y-1">
-                {resources.resources.map((link, index) => (
-                  <li key={index}><a href={link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{link}</a></li>
+          {isPlanLoading && <div className="flex justify-center items-center py-8"><Loader2 className="size-8 animate-spin text-primary" /></div>}
+          
+          {!isPlanLoading && (
+            <>
+              <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto">
+                {tasks.map((task) => (
+                  <div key={task.id} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`task-${task.id}`}
+                      checked={task.completed}
+                      onCheckedChange={() => handleTaskToggle(task.id)}
+                    />
+                    <label
+                      htmlFor={`task-${task.id}`}
+                      className={`text-sm font-medium leading-none ${task.completed ? 'line-through text-muted-foreground' : ''}`}
+                    >
+                      {task.text}
+                    </label>
+                  </div>
                 ))}
-              </ul>
-            </div>
+
+                {isResourcesLoading && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-4 animate-spin"/> Loading resources...</div>}
+                
+                {resources && (
+                  <div className="mt-4 space-y-2 pt-4 border-t">
+                    <h4 className="font-semibold font-headline">Helpful Resources</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {resources.resources.map((link, index) => (
+                        <li key={index}><a href={link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{link}</a></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="ghost" onClick={() => setIsDailyPlanOpen(false)}>Close</Button>
+                  {allTasksCompleted ? (
+                    <Button onClick={() => setIsDailyPlanOpen(false)}>
+                      <CheckCircle2 className="mr-2 size-4"/> You did it!
+                    </Button>
+                  ) : (
+                    <Button onClick={() => setIsDailyPlanOpen(false)}>Done for Today</Button>
+                  )}
+              </div>
+            </>
           )}
-          <div className="flex justify-end gap-2 mt-4">
-              <Button variant="ghost" onClick={() => setIsPlanDialogOpen(false)}>Close</Button>
-              {allTasksCompleted ? (
-                <Button onClick={() => setIsPlanDialogOpen(false)}>
-                  <CheckCircle2 className="mr-2 size-4"/> You did it!
-                </Button>
-              ) : (
-                <Button onClick={handleFindResources} disabled={isResourcesLoading || tasks.every(t => !t.completed)}>
-                  {isResourcesLoading ? <Loader2 className="mr-2 size-4 animate-spin"/> : <Newspaper className="mr-2 size-4" />}
-                  {tasks.every(t => !t.completed) ? 'Complete a task first' : 'Adjust Plan & Find Resources'}
-                </Button>
-              )}
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isFullPlanOpen} onOpenChange={setIsFullPlanOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Your Full Learning Plan: {userData.learningGoal}</DialogTitle>
+            <DialogDescription>
+              Here is your comprehensive plan for the next {userData.learningDuration} days.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto p-1">
+            {isFullPlanLoading ? (
+                <div className="flex justify-center items-center py-12">
+                    <Loader2 className="size-10 animate-spin text-primary" />
+                </div>
+            ) : fullPlan ? (
+                <Accordion type="single" collapsible className="w-full">
+                    {fullPlan.fullPlan.map((dayPlan) => (
+                        <AccordionItem value={`day-${dayPlan.day}`} key={dayPlan.day}>
+                            <AccordionTrigger>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-primary font-bold">Day {dayPlan.day}</span>
+                                    <span>{dayPlan.title}</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <ul className="list-disc pl-6 space-y-2">
+                                    {dayPlan.tasks.map((task, index) => (
+                                        <li key={index}>{task}</li>
+                                    ))}
+                                </ul>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                <p>Could not load the plan.</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
+
     </SidebarProvider>
   );
 }
