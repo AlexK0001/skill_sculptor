@@ -1,5 +1,23 @@
-# Firebase Studio
+# Skill Sculptor
 
-This is a NextJS starter in Firebase Studio.
+Веб-додаток для розвитку навичок.
 
-To get started, take a look at src/app/page.tsx.
+## Запуск проекту
+
+```bash
+# Встановлення залежностей
+npm install
+
+# Запуск у режимі розробки
+npm start
+
+# Збірка для продакшену
+npm run build
+```
+
+## Docker
+
+```bash
+# Запуск через Docker Compose
+docker-compose up -d
+```
