@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  skills?: Skill[];
+}
+
+interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  level: number;
+  progress: number;
+  userId: string;
+}
+
+interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
@@ -8,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Тут має бути логіка перевірки користувача в базі даних
     // Для прикладу використовуємо mock дані
     if (email === 'test@example.com' && password === 'password') {
-      const user = {
+      const user: User = {
         id: '1',
         email: 'test@example.com',
         name: 'Test User',

@@ -11,4 +11,24 @@ export const OnboardingSchema = z.object({
   learningDuration: z.coerce.number().min(25, "Minimum duration is 25 days.").max(365, "Maximum duration is 365 days."),
 });
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface Skill {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  level: number;
+  progress: number;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 export type OnboardingData = z.infer<typeof OnboardingSchema>;
