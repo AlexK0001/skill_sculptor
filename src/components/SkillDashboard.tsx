@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useApi } from '../lib/api';
-import type { Skill } from '../lib/types.ts';
+import type { Skill } from '../lib/types';
 
 
 interface SkillCardProps {

@@ -1,14 +1,13 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Rocket } from 'lucide-react';
-import type { OnboardingData } from '@/lib/types';
-import { OnboardingSchema } from '@/lib/types';
+import { OnboardingSchema, OnboardingData } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,20 +25,24 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       gender: '',
       age: 25,
       learningGoal: '',
+      learningDuration: 30,
       preferences: '',
       strengths: '',
       weaknesses: '',
-      learningDuration: 30,
     },
   });
 
   const { isSubmitting } = form.formState;
 
+  const handleSubmit: SubmitHandler<OnboardingData> = (data) => {
+    onComplete(data);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-blue-50">
       <Card className="w-full max-w-2xl shadow-2xl">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onComplete)}>
+          <form onSubmit={form.handleSubmit(handleSubmit)}>
             <CardHeader className="text-center">
               <div className="flex justify-center items-center gap-3 mb-2">
                 <Logo className="size-12 text-primary" />
@@ -50,18 +53,18 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
               <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Name or Nickname</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Alex" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Name or Nickname</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Alex" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="learningGoal"
@@ -120,12 +123,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     <FormControl>
                       <Textarea placeholder="e.g., Quick learner, good at problem-solving" {...field} />
                     </FormControl>
-                     <FormDescription>What are you good at?</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-               <FormField
+              <FormField
                 control={form.control}
                 name="weaknesses"
                 render={({ field }) => (
@@ -134,12 +136,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     <FormControl>
                       <Textarea placeholder="e.g., Procrastination, get distracted easily" {...field} />
                     </FormControl>
-                    <FormDescription>Where can you improve?</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-               <FormField
+              <FormField
                 control={form.control}
                 name="preferences"
                 render={({ field }) => (
@@ -152,7 +153,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   </FormItem>
                 )}
               />
-               <FormField
+              <FormField
                 control={form.control}
                 name="learningDuration"
                 render={({ field }) => (
