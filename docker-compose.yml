@@ -13,10 +13,10 @@ services:
       - /app/node_modules
       # - /app/.next
     environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
-      - DATABASE_URL=postgresql://user:password@db:5432/skill_sculptor
-      - JWT_SECRET=your-super-secret-jwt-key-here
+      -  NODE_ENV: development
+      - NEXT_PUBLIC_API_URL: http://localhost:3000
+      - DATABASE_URL: postgresql://user:password@db:5432/skill_sculptor
+      - JWT_SECRET: your-super-secret-jwt-key-here
     depends_on:
       - db
       - redis
@@ -31,7 +31,7 @@ services:
       - POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql 
     ports:
       - "5432:5432"
 

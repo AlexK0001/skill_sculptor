@@ -57,4 +57,4 @@ export async function POST(request: NextRequest) {
 }
 
 // Експорт всіх типів для використання в компонентах
-export type { User, Skill, AuthResponse };
+// export type { User, Skill, AuthResponse };

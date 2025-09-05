@@ -1,5 +1,6 @@
 -- init.sql
 -- Створення бази даних для Skill Sculptor
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Таблиця користувачів
 CREATE TABLE IF NOT EXISTS users (
@@ -88,7 +89,7 @@ BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
 -- Тригери для автоматичного оновлення updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
@@ -185,16 +186,16 @@ BEGIN
         ELSE RETURN 1;
     END CASE;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Тригер для автоматичного оновлення рівня навички
 CREATE OR REPLACE FUNCTION update_skill_level()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
     NEW.level = calculate_skill_level(NEW.progress);
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_skill_level_trigger 
     BEFORE INSERT OR UPDATE OF progress ON skills
