@@ -2,26 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Світла і темна тема */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 17, 24, 39;
+  --background-rgb: 255, 255, 255;
+  --card-bg: 255, 255, 255;
+  --input-bg: 249, 250, 251;
+  --button-bg: 37, 99, 235;
+  --button-text: 255, 255, 255;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+[data-theme="dark"] {
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 17, 24, 39;
+  --card-bg: 31, 41, 55;
+  --input-bg: 55, 65, 81;
+  --button-bg: 59, 130, 246;
+  --button-text: 255, 255, 255;
+}
+
+/* Базовий стиль */
+body {
+  color: rgb(var(--foreground-rgb));
+  background-color: rgb(var(--background-rgb));
+  font-family: 'Inter', sans-serif;
+  @apply min-h-screen flex items-center justify-center p-4;
+}
+
+/* Контейнер форми */
+.form-container {
+  @apply w-full max-w-md md:max-w-lg lg:max-w-xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8;
+}
+
+/* Заголовки */
+.form-title {
+  @apply text-2xl md:text-3xl font-bold text-center mb-2 text-gray-900 dark:text-white;
+}
+
+.form-subtitle {
+  @apply text-gray-600 dark:text-gray-300 text-center mb-6 text-sm md:text-base;
+}
+
+/* Поля форми */
+.form-label {
+  @apply block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300;
+}
+
+.form-input {
+  @apply w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition;
+}
+
+/* Кнопка */
+.form-button {
+  @apply w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition;
+}
+
+/* Адаптивність */
+@media (min-width: 768px) {
+  .form-container {
+    @apply p-8;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@media (min-width: 1024px) {
+  .form-container {
+    @apply p-10;
+  }
 }
