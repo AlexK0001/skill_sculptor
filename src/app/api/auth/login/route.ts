@@ -1,60 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  skills?: Skill[];
-}
-
-interface Skill {
-  id: string;
-  name: string;
-  description: string;
-  level: number;
-  progress: number;
-  userId: string;
-}
-
-interface AuthResponse {
-  token: string;
-  user: User;
-}
+import bcrypt from 'bcryptjs';
+import { getUsersCollection } from '@/lib/mongodb';
+import { userDocumentToUser, type LoginRequest, type AuthResponse, type UserDocument } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { email, password }: LoginRequest = await request.json();
 
-    // Тут має бути логіка перевірки користувача в базі даних
-    // Для прикладу використовуємо mock дані
-    if (email === 'test@example.com' && password === 'password') {
-      const user: User = {
-        id: '1',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-
-      const token = jwt.sign(
-        { userId: user.id, email: user.email },
-        process.env.JWT_SECRET || 'secret',
-        { expiresIn: '7d' }
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
       );
-
-      return NextResponse.json({ token, user });
     }
 
-    return NextResponse.json(
-      { error: 'Invalid credentials' },
-      { status: 401 }
+    const users = await getUsersCollection();
+    const userDoc = await users.findOne({ email }) as UserDocument | null;
+
+    if (!userDoc) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, userDoc.passwordHash);
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
+
+    const user = userDocumentToUser(userDoc);
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: '7d' }
     );
+
+    const response: AuthResponse = { token, user };
+    return NextResponse.json(response);
   } catch (error) {
+    console.error('Login error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
-// Експорт всіх типів для використання в компонентах
-// export type { User, Skill, AuthResponse };
