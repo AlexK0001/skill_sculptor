@@ -1,7 +1,10 @@
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+import { gemini15Flash, googleAI } from '@genkit-ai/googleai';
+import { defineConfig } from 'genkit';
 
-export const ai = genkit({
+export const ai = defineConfig({
   plugins: [googleAI()],
-  model: 'googleai/gemini-2.5-flash',
+  model: gemini15Flash, // Default model
+  enableTracingAndMetrics: process.env.NODE_ENV === 'development',
 });
+
+export default ai;
