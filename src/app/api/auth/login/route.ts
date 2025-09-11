@@ -6,7 +6,8 @@ import { userDocumentToUser, type LoginRequest, type AuthResponse, type UserDocu
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password }: LoginRequest = await request.json();
+    const body = await request.json();
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -15,9 +16,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const users = await getUsersCollection();
-    const userDoc = await users.findOne({ email }) as UserDocument | null;
-
+    const usersCollection = await getUsersCollection();
+    
+    // Find user by email
+    const userDoc = await usersCollection.findOne({ email });
     if (!userDoc) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -25,6 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify password
     const isPasswordValid = await bcrypt.compare(password, userDoc.passwordHash);
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -33,17 +36,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = userDocumentToUser(userDoc);
+    // Create JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'fallback-secret',
+      { userId: userDoc._id.toString() },
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    const response: AuthResponse = { token, user };
-    return NextResponse.json(response);
+    const user = userDocumentToUser(userDoc);
+
+    return NextResponse.json({
+      token,
+      user,
+    });
+
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Error logging in user:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
