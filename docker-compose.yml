@@ -19,6 +19,7 @@ services:
       - JWT_SECRET: your-super-secret-jwt-key-here
     depends_on:
       - mongo
+      - redis
     command: npm run dev
 
   # PostgreSQL Database

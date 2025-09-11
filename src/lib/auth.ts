@@ -35,3 +35,4 @@ export async function verifyToken(request: NextRequest) {
     return { error: 'Token verification failed' };
   }
 }
+export default verifyToken;
