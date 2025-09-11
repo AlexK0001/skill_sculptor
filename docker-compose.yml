@@ -15,11 +15,10 @@ services:
     environment:
       -  NODE_ENV: development
       - NEXT_PUBLIC_API_URL: http://localhost:3000
-      - DATABASE_URL: postgresql://user:password@db:5432/skill_sculptor
+      - MONGODB_URI: mongodb://mongo:27017/skill_sculptor
       - JWT_SECRET: your-super-secret-jwt-key-here
     depends_on:
-      - db
-      - redis
+      - mongo
     command: npm run dev
 
   # PostgreSQL Database
@@ -54,6 +53,15 @@ services:
     depends_on:
       - db
 
+mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
 volumes:
+  mongo_data:
   postgres_data:
   redis_data:

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getDatabase } from '@/lib/mongodb';
-import { JWT_SECRET} from '@/lib/constants';
+import { JWT_SECRET } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {

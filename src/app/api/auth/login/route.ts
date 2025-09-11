@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { getUsersCollection } from '@/lib/mongodb';
 import { userDocumentToUser, type LoginRequest, type AuthResponse, type UserDocument } from '@/lib/types';
+import { JWT_SECRET } from '@/lib/constants';
+
 
 export async function POST(request: NextRequest) {
   try {
