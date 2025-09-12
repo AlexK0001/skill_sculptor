@@ -1,5 +1,6 @@
 // src/lib/auth.ts
 import { NextRequest } from 'next/server';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import { getUsersCollection } from '@/lib/mongodb';

@@ -4,6 +4,7 @@ import { userDocumentToUser, type UserDocument } from '@/lib/types';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // POST /api/users - Create new user (Registration)

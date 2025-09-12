@@ -4,6 +4,7 @@ import { getSkillsCollection } from '@/lib/mongodb';
 import { skillDocumentToSkill, type UpdateSkillRequest, type SkillDocument } from '@/lib/types';
 import { verifyToken } from '@/lib/auth';
 
+
 interface RouteContext {
   params: { id: string };
 }
@@ -35,6 +36,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         { error: 'Invalid skill ID' },
         { status: 400 }
       );
+    }
+
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const skills = await getSkillsCollection();
@@ -83,6 +88,10 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         { error: 'Progress must be between 0 and 100' },
         { status: 400 }
       );
+    }
+
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const skills = await getSkillsCollection();
@@ -176,6 +185,10 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
         { error: 'Invalid skill ID' },
         { status: 400 }
       );
+    }
+
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const skills = await getSkillsCollection();
