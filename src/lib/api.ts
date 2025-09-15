@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import { OnboardingData } from './types';
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from '@/lib/auth';
+import type { Skill } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -24,10 +24,16 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      };
+      const headers = new Headers({ 'Content-Type': 'application/json' });
+
+    if (options.headers) {
+      const provided = new Headers(options.headers as HeadersInit);
+      provided.forEach((value, key) => {
+      headers.set(key, value);
+    });
+}
+    const fetchOptions = { ...options, headers };
+    const res = await fetch(API_BASE_URL + endpoint, fetchOptions);
 
       if (this.token) {
         headers.Authorization = `Bearer ${this.token}`;
@@ -84,6 +90,34 @@ class ApiClient {
 
     return response;
   }
+
+  // отримати всі навички поточного користувача
+async getSkills(): Promise<ApiResponse<Skill[]>> {
+  return this.request<Skill[]>('/api/skills', { method: 'GET' });
+}
+
+// створити навичку
+async createSkill(skill: Partial<Skill>): Promise<ApiResponse<Skill>> {
+  return this.request<Skill>('/api/skills', {
+    method: 'POST',
+    body: JSON.stringify(skill),
+  });
+}
+
+// оновити навичку
+async updateSkill(id: string, skill: Partial<Skill>): Promise<ApiResponse<Skill>> {
+  return this.request<Skill>(`/api/skills/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(skill),
+  });
+}
+
+// видалити навичку
+async deleteSkill(id: string): Promise<ApiResponse<{ success: boolean }>> {
+  return this.request<{ success: boolean }>(`/api/skills/${id}`, {
+    method: 'DELETE',
+  });
+}
 
   async saveLearningPlan(planData: OnboardingData & { dailyPlans?: any; fullPlans?: any }) {
     return this.request('/learning-plans', {
@@ -174,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <useAuth.Provider value={{
+    <AuthContext.Provider value={{
       user,
       login,
       register,
@@ -182,14 +216,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
     }}>
       {children}
-    </useAuth.Provider>
+    </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }

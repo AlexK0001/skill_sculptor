@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Rocket, Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 import { OnboardingSchema, OnboardingData } from '@/lib/types';
-
+import type { Resolver } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -22,18 +22,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [darkMode, setDarkMode] = useState(false);
 
   const form = useForm<OnboardingData>({
-    resolver: zodResolver(OnboardingSchema),
-    defaultValues: {
-      name: '',
-      gender: '',
-      age: 25,
-      learningGoal: '',
-      learningDuration: 30,
-      preferences: '',
-      strengths: '',
-      weaknesses: '',
-    },
-  });
+  // Приводимо resolver до правильної generic-формули
+  resolver: zodResolver(OnboardingSchema) as unknown as Resolver<OnboardingData>,
+  defaultValues: {
+    name: '',
+    gender: '',
+    age: 25,
+    learningGoal: '',
+    learningDuration: 30,
+    preferences: '',
+    strengths: '',
+    weaknesses: '',
+  },
+});
 
   const { isSubmitting } = form.formState;
 

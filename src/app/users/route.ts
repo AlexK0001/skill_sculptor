@@ -44,29 +44,26 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await usersCollection.insertOne(userDoc);
-    
-    // Get created user
-    const createdUser = await usersCollection.findOne({ _id: result.insertedId });
-    if (!createdUser) {
-      return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 500 }
-      );
-    }
 
-    // Create JWT token
-    const token = jwt.sign(
-      { userId: createdUser._id.toString() },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+// Явно приводимо тип знайденого документа до UserDocument | null
+const createdUser = (await usersCollection.findOne({ _id: result.insertedId })) as UserDocument | null;
 
-    const user = userDocumentToUser(createdUser);
+if (!createdUser) {
+  return NextResponse.json({ error: 'Error creating user' }, { status: 500 });
+}
 
-    return NextResponse.json({
-      token,
-      user,
-    });
+const token = jwt.sign(
+  { userId: createdUser._id!.toString() },
+  JWT_SECRET,
+  { expiresIn: '7d' }
+);
+
+const user = userDocumentToUser(createdUser);
+
+return NextResponse.json({
+  token,
+  user,
+});
 
   } catch (error) {
     console.error('Error creating user:', error);
