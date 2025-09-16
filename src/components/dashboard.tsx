@@ -93,7 +93,12 @@ export default function Dashboard({ userData }: DashboardProps) {
     setIsFullPlanLoading(true);
     setIsFullPlanOpen(true);
     try {
-        const plan = await suggestFullLearningPlan(userData);
+        const plan = await suggestFullLearningPlan({
+          ...userData,
+          preferences: userData.preferences ?? '',
+          strengths: userData.strengths ?? '',
+          weaknesses: userData.weaknesses ?? '',
+        });
         setFullPlan(plan);
     } catch (error) {
         console.error(error);
@@ -124,9 +129,12 @@ export default function Dashboard({ userData }: DashboardProps) {
         ...userData,
         mood,
         dailyPlans,
+        preferences: userData.preferences ?? '',
+        strengths: userData.strengths ?? '',
+        weaknesses: userData.weaknesses ?? '',
       });
       setDailyPlan(plan);
-      setTasks(plan.learningPlan.map((task, index) => ({ id: index, text: task, completed: false })));
+      setTasks(plan.learningPlan.map((task: any, index: any) => ({ id: index, text: task, completed: false })));
       
       // Immediately find resources
       setIsResourcesLoading(true);
@@ -357,7 +365,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                     }
                   }}
                    components={{
-                    DayContent: (props) => {
+                    DayContent: (props: any) => {
                       const isCompleted = completedDays.some(d => d.getTime() === props.date.getTime());
                       return (
                         <div className="relative flex items-center justify-center h-full w-full">
@@ -407,7 +415,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                   <div className="mt-4 space-y-2 pt-4 border-t">
                     <h4 className="font-semibold font-headline">Helpful Resources</h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                      {resources.resources.map((link, index) => (
+                      {resources.resources.map((link: any, index: any) => (
                         <li key={index}><a href={link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{link}</a></li>
                       ))}
                     </ul>
@@ -444,7 +452,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 </div>
             ) : fullPlan ? (
                 <Accordion type="single" collapsible className="w-full">
-                    {fullPlan.fullPlan.map((dayPlan) => (
+                    {fullPlan.fullPlan.map((dayPlan: any) => (
                         <AccordionItem value={`day-${dayPlan.day}`} key={dayPlan.day}>
                             <AccordionTrigger>
                                 <div className="flex items-center gap-3">
@@ -454,7 +462,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                             </AccordionTrigger>
                             <AccordionContent>
                                 <ul className="list-disc pl-6 space-y-2">
-                                    {dayPlan.tasks.map((task, index) => (
+                                    {dayPlan.tasks.map((task: any, index: any) => (
                                         <li key={index}>{task}</li>
                                     ))}
                                 </ul>

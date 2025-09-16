@@ -58,7 +58,7 @@ const suggestLearningPlanFlow = ai.defineFlow(
     inputSchema: SuggestLearningPlanInputSchema,
     outputSchema: SuggestLearningPlanOutputSchema,
   },
-  async input => {
+  async (input: any) => {
     const {output} = await prompt(input);
     return output!;
   }

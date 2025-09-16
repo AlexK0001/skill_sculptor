@@ -54,7 +54,7 @@ const aggregateLearningResourcesFlow = ai.defineFlow(
     inputSchema: AggregateLearningResourcesInputSchema,
     outputSchema: AggregateLearningResourcesOutputSchema,
   },
-  async input => {
+  async (input: any) => {
     const {output} = await prompt(input);
     return output!;
   }

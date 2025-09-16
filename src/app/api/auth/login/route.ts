@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
     const usersCollection = await getUsersCollection();
     
     // Find user by email
-    const userDoc = await usersCollection.findOne({ email });
+    const userDoc = (await usersCollection.findOne({ email })) as UserDocument | null;
+      
     if (!userDoc) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
