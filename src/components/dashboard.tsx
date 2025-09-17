@@ -374,7 +374,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                         </div>
                       );
                     },
-                  }}
+                  } as any }
                 />
               </CardContent>
             </Card>
