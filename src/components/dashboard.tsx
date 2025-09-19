@@ -347,9 +347,10 @@ export default function Dashboard({ userData }: DashboardProps) {
                   mode="multiple"
                   min={0}
                   selected={daysOff}
-                  onSelect={setDaysOff}
+                  onSelect={(value) => setDaysOff(value ?? [])}
                   onDayClick={handleDayClick}
                   className="rounded-md border"
+                  required={false}
                   modifiers={{
                     off: daysOff,
                     completed: completedDays,

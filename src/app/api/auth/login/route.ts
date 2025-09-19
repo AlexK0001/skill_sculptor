@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = userDoc?._id ? userDoc._id.toString() : '';
+    const userId = userDoc._id ? userDoc._id.toString() : null;
       if (!userId) {
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+        return NextResponse.json({ error: 'Invalid user id' }, { status: 500 });
       }
 
     // Create JWT token
