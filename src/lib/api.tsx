@@ -1,4 +1,3 @@
-// src/lib/api.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
@@ -13,20 +12,19 @@ export interface ApiResponse<T = any> {
   status?: number;
 }
 
+interface RequestOptions extends Omit<RequestInit, "body"> {
+  body?: any;
+}
+
 class ApiClient {
   private token: string | null = null;
 
   setToken(token: string | null) {
     this.token = token;
     try {
-      if (token) {
-        localStorage.setItem("auth_token", token);
-      } else {
-        localStorage.removeItem("auth_token");
-      }
-    } catch {
-      // ignore (e.g. SSR or private mode)
-    }
+      if (token) localStorage.setItem("auth_token", token);
+      else localStorage.removeItem("auth_token");
+    } catch {}
   }
 
   getToken(): string | null {
@@ -37,34 +35,35 @@ class ApiClient {
         this.token = t;
         return t;
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
     return null;
   }
 
   private buildUrl(path: string) {
     if (!path.startsWith("/")) path = "/" + path;
-    if (API_BASE) return `${API_BASE}${path}`;
-    return path;
+    return API_BASE ? `${API_BASE}${path}` : path;
   }
 
-  async request<T = any>(path: string, opts: RequestInit = {}): Promise<ApiResponse<T>> {
+  async request<T = any>(path: string, opts: RequestOptions = {}): Promise<ApiResponse<T>> {
     const url = this.buildUrl(`/api${path}`);
-    // include cookies (for OAuth cookie-based token)
-    const init: RequestInit = { credentials: "include", headers: {}, ...opts };
+    const headers: Record<string, string> = {};
 
-    // If we have a saved token, add Authorization header
     const token = this.getToken();
-    if (token) {
-      // ensure headers exists
-      init.headers = { ...(init.headers as any), Authorization: `Bearer ${token}` };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (opts.body && !(opts.body instanceof FormData) && typeof opts.body !== "string") {
+      headers["Content-Type"] = "application/json";
     }
 
-    if (init.body && typeof init.body !== "string" && !(init.body instanceof FormData)) {
-      init.headers = { ...(init.headers as any), "Content-Type": "application/json" };
-      init.body = JSON.stringify(init.body);
-    }
+    const init: RequestInit = {
+      method: opts.method || "GET",
+      credentials: "include",
+      headers: { ...headers, ...(opts.headers || {}) },
+      body: opts.body
+        ? opts.body instanceof FormData || typeof opts.body === "string"
+          ? opts.body
+          : JSON.stringify(opts.body)
+        : undefined,
+    };
 
     try {
       const res = await fetch(url, init);
@@ -72,9 +71,8 @@ class ApiClient {
       let json: any = null;
       try {
         json = await res.json();
-      } catch {
-        // no JSON
-      }
+      } catch {}
+
       if (!res.ok) {
         return { error: (json && json.error) || res.statusText || "Request failed", status };
       }
@@ -84,8 +82,10 @@ class ApiClient {
     }
   }
 
-  // Auth helpers
-  async login(email: string, password: string) {
+  /* --------------------
+     Auth
+  -------------------- */
+  async login(email: string, password: string): Promise<ApiResponse<User>> {
     const res = await this.request<{ token?: string; user?: User }>(`/auth/login`, {
       method: "POST",
       body: { email, password },
@@ -97,7 +97,7 @@ class ApiClient {
     return { error: res.error || "Login failed" };
   }
 
-  async register(email: string, name: string, password: string) {
+  async register(email: string, name: string, password: string): Promise<ApiResponse<User>> {
     const res = await this.request<{ token?: string; user?: User }>(`/auth/register`, {
       method: "POST",
       body: { email, name, password },
@@ -110,39 +110,42 @@ class ApiClient {
   }
 
   async logout() {
-    // If you have a server-side logout endpoint you can call it; otherwise clear local token.
-    // Try to call /auth/logout if exists (non-fatal).
     await this.request("/auth/logout", { method: "POST" }).catch(() => void 0);
     this.setToken(null);
   }
 
-  // Example resource methods (extend as needed)
-  async getSkills(): Promise<ApiResponse<Skill[]>> {
-    return this.request<Skill[]>(`/skills`, { method: "GET" });
+  async getCurrentUser(): Promise<User | null> {
+    const res = await this.request<{ user?: User }>(`/auth/verify`, { method: "GET" });
+    return res.data?.user || null;
   }
 
-  async createSkill(skillData: Partial<Skill>) {
-    return this.request<Skill>(`/skills`, { method: "POST", body: skillData });
+  /* --------------------
+     Skills
+  -------------------- */
+  async getSkills(userId?: string): Promise<ApiResponse<Skill[]>> {
+    const q = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    return this.request<Skill[]>(`/skills${q}`, { method: "GET" });
   }
 
-  async updateSkill(id: string, skillData: Partial<Skill>) {
+  async createSkill(userId: string | null, skillData: Partial<Skill>): Promise<ApiResponse<Skill>> {
+    const body = userId ? { userId, ...skillData } : skillData;
+    return this.request<Skill>(`/skills`, { method: "POST", body });
+  }
+
+  async updateSkill(id: string, skillData: Partial<Skill>): Promise<ApiResponse<Skill>> {
     return this.request<Skill>(`/skills/${encodeURIComponent(id)}`, { method: "PUT", body: skillData });
   }
 
-  async deleteSkill(id: string) {
+  async deleteSkill(id: string): Promise<ApiResponse<{ success: boolean }>> {
     return this.request<{ success: boolean }>(`/skills/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 }
 
 export const apiClient = new ApiClient();
 
-export function useApi() {
-  return apiClient;
-}
-
 /* ------------------------------
    Auth context / provider
-   ------------------------------ */
+------------------------------ */
 
 type AuthContextType = {
   user: User | null;
@@ -159,49 +162,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   const refreshUser = async () => {
-    // try to verify with cookie or saved token
-    // This endpoint (server) should accept token in cookie or Authorization header
-    const res = await apiClient.request<{ user?: User }>(`/auth/verify`, { method: "GET" });
-    if (res.data && (res.data as any).user) {
-      setUser((res.data as any).user);
-    } else {
-      setUser(null);
-    }
-  };
+  if (!apiClient.getToken()) return; // якщо токена нема — не викликаємо verify
+  const u = await apiClient.getCurrentUser();
+  setUser(u);
+};
 
   useEffect(() => {
-    // initialize token from localStorage if present
     try {
       const tok = localStorage.getItem("auth_token");
       if (tok) apiClient.setToken(tok);
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // attempt to refresh user on mount (this will pick up cookie-based OAuth tokens)
     refreshUser();
 
-    // allow manual refresh via window event (used by other parts if necessary)
-    const handler = () => {
-      refreshUser();
-    };
+    const handler = () => refreshUser();
     window.addEventListener("auth:refresh", handler);
     return () => window.removeEventListener("auth:refresh", handler);
   }, []);
 
   const login = async (email: string, password: string) => {
     const res = await apiClient.login(email, password);
-    if (res.data) {
-      setUser(res.data);
-    }
+    if (res.data) setUser(res.data);
     return res;
   };
 
   const register = async (email: string, name: string, password: string) => {
     const res = await apiClient.register(email, name, password);
-    if (res.data) {
-      setUser(res.data);
-    }
+    if (res.data) setUser(res.data);
     return res;
   };
 
@@ -226,4 +213,8 @@ export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+export function useApi() {
+  return apiClient;
 }
