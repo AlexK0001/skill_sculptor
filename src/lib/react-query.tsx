@@ -3,12 +3,13 @@ import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState } from 'react';
 
+
 export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 1000 * 60 * 5, // 5 minutes
-        retry: (failureCount, error: any) => {
+        retry: (failureCount: number, error: any) => {
           // Don't retry on 4xx errors
           if (error?.status >= 400 && error?.status < 500) {
             return false;

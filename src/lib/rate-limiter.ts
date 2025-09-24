@@ -1,3 +1,5 @@
+import { APIError, ErrorCode } from '@/lib/error-handler';
+
 interface RateLimitEntry {
   count: number;
   resetTime: number;
@@ -61,11 +63,11 @@ export async function checkAIRateLimit(userId: string, endpoint: string) {
   const result = await rateLimiter.isAllowed(identifier, limit, windowMs);
   
   if (!result.allowed) {
+    const minutes = Math.ceil((result.resetTime! - Date.now()) / 60000);
     throw new APIError(
       ErrorCode.RATE_LIMIT,
-      `Rate limit exceeded. Try again in ${Math.ceil((result.resetTime! - Date.now()) / 60000)} minutes`,
-      429,
-      { resetTime: result.resetTime }
+      `Rate limit exceeded. Try again in ${minutes} minutes`,
+      429
     );
   }
 

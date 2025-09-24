@@ -8,6 +8,7 @@ export enum ErrorCode {
   RATE_LIMIT = 'RATE_LIMIT',
   AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
+  SERVER_ERROR = "SERVER_ERROR",
   INTERNAL_ERROR = 'INTERNAL_ERROR'
 }
 
@@ -15,11 +16,14 @@ export class APIError extends Error {
   constructor(
     public code: ErrorCode,
     message: string,
+    public status: number,
     public statusCode: number = 500,
     public details?: any
   ) {
     super(message);
     this.name = 'APIError';
+    this.code = code;
+    this.status = status;
   }
 }
 
@@ -67,7 +71,13 @@ export function withErrorHandler(handler: Function) {
     try {
       return await handler(...args);
     } catch (error) {
-      return handleAPIError(error);
+      if (error instanceof APIError) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: error.status,
+        });
+      }
+      console.error(error);
+      return new Response(JSON.stringify({ error: "Server error" }), { status: 500 });
     }
-  };
+}
 }
