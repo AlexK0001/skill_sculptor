@@ -1,21 +1,19 @@
-import type { SVGProps } from "react";
+import { LucideProps } from "lucide-react";
 
-export function Logo(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
+export const Logo = ({ className, ...props }: LucideProps) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M12 2L12 22M12 2C8 2 5 5 5 9C5 13 8 16 12 16M12 2C16 2 19 5 19 9C19 13 16 16 12 16M12 16C8 16 5 19 5 22H19C19 19 16 16 12 16Z"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M14.73 2.2a4.5 4.5 0 0 1 5.07 5.07" />
-      <path d="M9.27 21.8a4.5 4.5 0 0 1-5.07-5.07" />
-      <path d="M9 15H4s-1.5-1.5-1.5-4C2.5 8 4 4 8 4s5.5 4 5.5 7c0 1.5-1.5 1.5-1.5 1.5H9z" />
-      <path d="M15 9h5s1.5 1.5 1.5 4c0 3-1.5 7-5.5 7S9.5 16 9.5 13c0-1.5 1.5-1.5 1.5-1.5H15z" />
-    </svg>
-  );
-}
+    />
+  </svg>
+);

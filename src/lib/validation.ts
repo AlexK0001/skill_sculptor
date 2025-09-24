@@ -13,6 +13,12 @@ export const LoginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+// Daily checkin validation
+export const DailyCheckinSchema = z.object({
+  mood: z.string().min(5, 'Please describe your mood').max(200),
+  dailyPlans: z.string().min(5, 'Please describe your plans').max(300)
+});
+
 // Skill validation schemas
 export const CreateSkillSchema = z.object({
   name: z.string().min(1, 'Skill name is required').max(100, 'Name too long'),
@@ -36,10 +42,4 @@ export const OnboardingSchema = z.object({
   weaknesses: z.string().max(500).optional(),
   preferences: z.string().max(500).optional(),
   learningDuration: z.number().min(25, 'Minimum 25 days').max(365, 'Maximum 365 days')
-});
-
-// AI input validation
-export const DailyCheckinSchema = z.object({
-  mood: z.string().min(5, 'Please describe your mood').max(200),
-  dailyPlans: z.string().min(5, 'Please describe your plans').max(300)
 });
