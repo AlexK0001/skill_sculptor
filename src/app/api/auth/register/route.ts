@@ -1,31 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+import { RegisterSchema } from '@/lib/validation';
+import { validateRequest } from '@/lib/api-middleware';
 import { getUsersCollection } from '@/lib/mongodb';
-import { userDocumentToUser, type RegisterRequest, type AuthResponse, type UserDocument } from '@/lib/types';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-export async function POST(request: NextRequest) {
+export const POST = validateRequest(RegisterSchema)(async (data, req) => {
   try {
-    const { email, name, password }: RegisterRequest = await request.json();
-
-    if (!email || !name || !password) {
-      return NextResponse.json(
-        { error: 'Email, name, and password are required' },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
-      );
-    }
-
     const users = await getUsersCollection();
     
-    // Check if user already exists
-    const existingUser = await users.findOne({ email });
+    // Check if user exists
+    const existingUser = await users.findOne({ email: data.email });
     if (existingUser) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
@@ -33,30 +18,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // Create new user
-    const newUserDoc: Omit<UserDocument, '_id'> = {
-      email,
-      name,
+    // Hash password and create user
+    const passwordHash = await bcrypt.hash(data.password, 12);
+    const newUser = {
+      ...data,
       passwordHash,
       createdAt: new Date(),
-      updatedAt: new Date(),
+      updatedAt: new Date()
     };
 
-    const result = await users.insertOne(newUserDoc);
-    const createdUserDoc = await users.findOne({ _id: result.insertedId }) as UserDocument;
+    const result = await users.insertOne(newUser);
+    const createdUser = await users.findOne({ _id: result.insertedId });
 
-    const user = userDocumentToUser(createdUserDoc);
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'fallback-secret',
+      { userId: createdUser!._id.toString() },
+      process.env.JWT_SECRET!,
       { expiresIn: '7d' }
     );
 
-    const response: AuthResponse = { token, user };
-    return NextResponse.json(response, { status: 201 });
+    return NextResponse.json({ token, user: createdUser }, { status: 201 });
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(
@@ -64,4 +44,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

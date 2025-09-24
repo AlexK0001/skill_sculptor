@@ -6,20 +6,46 @@ import React from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { AuthProvider } from "@/lib/api"; // використовується локально, не експортується
+import { ReactQueryProvider } from '@/lib/react-query';
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Skill Sculptor",
-  description: "Веб-додаток для розвитку навичок",
+  title: 'SkillSculptor',
+  description: 'Shape Your Future - AI-powered personalized learning',
+  manifest: '/manifest.json',
+  themeColor: '#3399FF',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    shortcut: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'SkillSculptor',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="uk">
-      <body className={`${inter.className} bg-background text-foreground`}>
-        <AuthProvider>
-          <header className="w-full border-b border-border/50 bg-transparent">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
+      <body className={inter.className}>
+        <ReactQueryProvider>
+          <AuthProvider>
+            <header className="w-full border-b border-border/50 bg-transparent">
             <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <a href="/" className="font-semibold text-lg">Skill Sculptor</a>
@@ -30,12 +56,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <GoogleSignInButton />
               </div>
             </div>
-          </header>
+            </header>
 
-          <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+            <main className="pt-16">{children}</main>
 
-          <Toaster />
-        </AuthProvider>
+            <Toaster />
+          </AuthProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );
