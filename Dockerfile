@@ -1,77 +1,33 @@
-# Dockerfile
 FROM node:18-alpine AS base
-
-# Install dependencies only when needed
-FROM base AS deps
 RUN apk add --no-cache libc6-compat
+
+FROM base AS deps
 WORKDIR /app
-RUN npm ci
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
-# Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
-
-# Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Generate Prisma client if using Prisma
-# RUN npx prisma generate
-
-# Build the application
+ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
-# If using npm with a `package-lock.json` comment out above and use below instead
-# RUN npm run build
-
-# Production image, copy all the files and run next
-# FROM base AS runner
-FROM node:18-alpine AS runner
+FROM base AS runner
 WORKDIR /app
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
 
-ENV NODE_ENV=production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# RUN addgroup --system --gid 1001 nodejs
-# RUN adduser --system --uid 1001 nextjs
-
-# Встановлюємо лише прод-залежності
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# COPY --from=builder /app/public ./public
-
-# Set the correct permission for prerender cache
-# RUN mkdir .next
-# RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-# COPY --from=builder /app/package*.json ./
-
-# Копіюємо зібраний артефакт
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./next.config.js  
-COPY --from=builder /app/next.config.ts ./next.config.ts 
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# USER nextjs
+USER nextjs
 
 EXPOSE 3000
+ENV PORT 3000
 
-ENV PORT=3000
-
-# CMD ["node", "server.js"]
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]

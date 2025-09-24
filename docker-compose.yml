@@ -11,49 +11,16 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      # - /app/.next
+      - /app/.next
     environment:
-      -  NODE_ENV: development
+      - NODE_ENV: development
       - NEXT_PUBLIC_API_URL: http://localhost:3000
       - MONGODB_URI: mongodb://mongo:27017/skill_sculptor
       - JWT_SECRET: your-super-secret-jwt-key-here
+      - GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     depends_on:
-      - db
       - mongo
-      - redis
     command: npm run dev
-
-  # PostgreSQL Database
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB: skill_sculptor
-      - POSTGRES_USER: user
-      - POSTGRES_PASSWORD: password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql 
-    ports:
-      - "5432:5432"
-
-  # Redis для кешування та сесій
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  # pgAdmin для управління базою даних (опціонально)
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      - PGADMIN_DEFAULT_EMAIL: admin@example.com
-      - PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
 
 mongo:
     image: mongo:6
@@ -62,8 +29,8 @@ mongo:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=skill_sculptor
 
 volumes:
   mongo_data:
-  postgres_data:
-  redis_data:
