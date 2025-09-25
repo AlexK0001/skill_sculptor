@@ -29,7 +29,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Validate request
   const body = (await request.json()) as DailyCheckinData;
   
-  const validatedData = DailyCheckinSchema.parse(body) as DailyCheckinData;
+  const validatedData: DailyCheckinData = DailyCheckinSchema.parse(body);
   
   // Generate AI plan
   const plan = await suggestLearningPlan({
