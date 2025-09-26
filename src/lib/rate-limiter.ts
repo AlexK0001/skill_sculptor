@@ -1,74 +1,73 @@
-interface RateLimitEntry {
+// src/lib/rate-limiter.ts - AI RATE LIMITING
+import { APP_CONFIG } from './constants';
+
+interface RateLimitRecord {
   count: number;
   resetTime: number;
+  lastRequest: number;
 }
 
-class MemoryRateLimiter {
-  private cache = new Map<string, RateLimitEntry>();
-  private cleanupInterval: NodeJS.Timeout;
+// In-memory store (use Redis in production)
+const aiRateLimitStore = new Map<string, RateLimitRecord>();
 
-  constructor() {
-    // Cleanup expired entries every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [key, entry] of this.cache.entries()) {
-        if (now > entry.resetTime) {
-          this.cache.delete(key);
-        }
-      }
-    }, 5 * 60 * 1000);
-  }
-
-  async isAllowed(
-    identifier: string,
-    limit: number,
-    windowMs: number = 60 * 1000 // 1 minute default
-  ): Promise<{ allowed: boolean; resetTime?: number; remaining?: number }> {
-    const now = Date.now();
-    const entry = this.cache.get(identifier);
-
-    if (!entry || now > entry.resetTime) {
-      // First request or window expired
-      this.cache.set(identifier, {
-        count: 1,
-        resetTime: now + windowMs
-      });
-      return { allowed: true, remaining: limit - 1, resetTime: now + windowMs };
-    }
-
-    if (entry.count >= limit) {
-      return { allowed: false, resetTime: entry.resetTime };
-    }
-
-    entry.count++;
-    return { allowed: true, remaining: limit - entry.count, resetTime: entry.resetTime };
-  }
-
-  destroy() {
-    clearInterval(this.cleanupInterval);
-    this.cache.clear();
-  }
-}
-
-export const rateLimiter = new MemoryRateLimiter();
-
-// Rate limiting middleware for AI endpoints
-export async function checkAIRateLimit(userId: string, endpoint: string) {
-  const identifier = `ai:${endpoint}:${userId}`;
-  const limit = endpoint === 'full-plan' ? 3 : 10; // Different limits per endpoint
-  const windowMs = 60 * 60 * 1000; // 1 hour window
-
-  const result = await rateLimiter.isAllowed(identifier, limit, windowMs);
+export async function checkAIRateLimit(
+  userId: string, 
+  endpoint: string = 'ai-general'
+): Promise<void> {
+  const key = `${userId}:${endpoint}`;
+  const now = Date.now();
+  const windowMs = APP_CONFIG.RATE_LIMIT_WINDOW; // 15 minutes
+  const maxRequests = APP_CONFIG.AI_RATE_LIMIT_MAX; // 10 requests
   
-  if (!result.allowed) {
-    const { APIError, ErrorCode } = await import('./error-handler');
-    throw new APIError(
-      ErrorCode.RATE_LIMIT,
-      `Rate limit exceeded. Try again in ${Math.ceil((result.resetTime! - Date.now()) / 60000)} minutes`,
-      429,
-      { resetTime: result.resetTime }
-    );
+  let record = aiRateLimitStore.get(key);
+  
+  // Reset if window expired
+  if (!record || now > record.resetTime) {
+    record = { 
+      count: 0, 
+      resetTime: now + windowMs,
+      lastRequest: now 
+    };
   }
+  
+  // Check if too many requests
+  if (record.count >= maxRequests) {
+    const resetIn = Math.ceil((record.resetTime - now) / 1000);
+    throw new Error(`Too many AI requests. Please try again in ${resetIn} seconds.`);
+  }
+  
+  // Update record
+  record.count++;
+  record.lastRequest = now;
+  aiRateLimitStore.set(key, record);
+}
 
-  return result;
+// Clean up expired records periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of aiRateLimitStore.entries()) {
+    if (now > record.resetTime + 60000) { // 1 minute buffer
+      aiRateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000); // Clean up every 5 minutes
+
+export function getRateLimitStatus(userId: string, endpoint: string = 'ai-general') {
+  const key = `${userId}:${endpoint}`;
+  const record = aiRateLimitStore.get(key);
+  const now = Date.now();
+  
+  if (!record || now > record.resetTime) {
+    return {
+      remaining: APP_CONFIG.AI_RATE_LIMIT_MAX,
+      resetTime: now + APP_CONFIG.RATE_LIMIT_WINDOW,
+      count: 0
+    };
+  }
+  
+  return {
+    remaining: Math.max(0, APP_CONFIG.AI_RATE_LIMIT_MAX - record.count),
+    resetTime: record.resetTime,
+    count: record.count
+  };
 }
