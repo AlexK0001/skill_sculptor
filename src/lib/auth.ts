@@ -65,7 +65,7 @@ export async function verifyToken(request: NextRequest): Promise<AuthResult> {
     }
 
     // Check if user is still active (optional)
-    if (userDoc.isActive === false) {
+    if ((userDoc as any).isActive === false) {
       return { user: null, error: 'User account is disabled' };
     }
 

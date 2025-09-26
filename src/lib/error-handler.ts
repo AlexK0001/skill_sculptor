@@ -18,10 +18,12 @@ export class APIError extends Error {
     public code: ErrorCode,
     message: string,
     public statusCode: number = 500,
-    public details?: any
+    public details?: any,
+    public meta?: any
   ) {
     super(message);
     this.name = 'APIError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
