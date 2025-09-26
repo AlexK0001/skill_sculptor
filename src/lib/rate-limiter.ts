@@ -71,3 +71,8 @@ export function getRateLimitStatus(userId: string, endpoint: string = 'ai-genera
     count: record.count
   };
 }
+
+// Make it async to match usage in route
+export async function getRateLimitStatusAsync(userId: string, endpoint: string = 'ai-general') {
+  return getRateLimitStatus(userId, endpoint);
+}

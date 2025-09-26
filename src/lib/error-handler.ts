@@ -6,6 +6,7 @@ export enum ErrorCode {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
   AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
+  UNAUTHORIZED = 'UNAUTHORIZED',
   NOT_FOUND = 'NOT_FOUND',
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
@@ -18,12 +19,10 @@ export class APIError extends Error {
     public code: ErrorCode,
     message: string,
     public statusCode: number = 500,
-    public details?: any,
-    public meta?: any
+    public details?: any
   ) {
     super(message);
     this.name = 'APIError';
-    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -54,7 +53,7 @@ export function createErrorResponse(
       error: 'Validation failed',
       code: ErrorCode.VALIDATION_ERROR,
       timestamp: new Date().toISOString(),
-      details: error.errors.map(e => ({
+      details: error.issues.map((e: any) => ({
         field: e.path.join('.'),
         message: e.message
       }))

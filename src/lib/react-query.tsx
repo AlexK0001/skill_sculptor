@@ -2,6 +2,20 @@
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, ReactNode } from 'react';
+import React from 'react';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 3,
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 export function createQueryClient() {
   return new QueryClient({
@@ -23,9 +37,7 @@ export function createQueryClient() {
   });
 }
 
-export function ReactQueryProvider({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(() => createQueryClient());
-
+export function ReactQueryProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}

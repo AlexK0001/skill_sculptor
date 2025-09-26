@@ -1,45 +1,64 @@
+// src/lib/validation.ts - MISSING SCHEMAS
 import { z } from 'zod';
 
-// User validation schemas
+// Registration validation
 export const RegisterSchema = z.object({
-  email: z.string().email('Invalid email format'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name too long'),
+  email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number')
+    .max(100, 'Password too long')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase and number')
 });
 
+// Login validation
 export const LoginSchema = z.object({
-  email: z.string().email('Invalid email format'),
+  email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required')
 });
 
 // Daily checkin validation
 export const DailyCheckinSchema = z.object({
-  mood: z.string().min(5, 'Please describe your mood').max(200),
-  dailyPlans: z.string().min(5, 'Please describe your plans').max(300)
+  mood: z.string()
+    .min(3, 'Mood description too short')
+    .max(500, 'Mood description too long')
+    .transform(s => s.trim()),
+  dailyPlans: z.string()
+    .min(5, 'Daily plans description too short') 
+    .max(1000, 'Daily plans description too long')
+    .transform(s => s.trim()),
+  learningGoal: z.string()
+    .max(200)
+    .optional()
+    .transform(s => s?.trim()),
+  // Optional user profile overrides
+  age: z.number().min(13).max(100).optional(),
+  gender: z.string().max(50).optional(),
+  strengths: z.string().max(500).optional(),
+  weaknesses: z.string().max(500).optional(),
+  preferences: z.string().max(500).optional()
 });
 
-// Skill validation schemas
+// Skill validation
 export const CreateSkillSchema = z.object({
-  name: z.string().min(1, 'Skill name is required').max(100, 'Name too long'),
-  description: z.string().max(500, 'Description too long').optional(),
-  category: z.string().max(50, 'Category too long').optional(),
+  name: z.string().min(1).max(100).transform(s => s.trim()),
+  description: z.string().max(500).optional().transform(s => s?.trim()),
+  category: z.string().max(50).optional().transform(s => s?.trim()),
   progress: z.number().min(0).max(100).default(0)
 });
 
-export const UpdateSkillSchema = CreateSkillSchema.partial().extend({
+export const UpdateSkillSchema = z.object({
+  name: z.string().min(1).max(100).optional().transform(s => s?.trim()),
+  description: z.string().max(500).optional().transform(s => s?.trim()),
+  category: z.string().max(50).optional().transform(s => s?.trim()),
+  progress: z.number().min(0).max(100).optional(),
+  level: z.number().min(1).max(10).optional(),
   isActive: z.boolean().optional(),
   targetDate: z.string().datetime().optional()
 });
 
-// Onboarding validation
-export const OnboardingSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(50),
-  learningGoal: z.string().min(5, 'Learning goal must be descriptive').max(200),
-  age: z.number().min(13, 'Must be at least 13').max(120, 'Invalid age'),
-  gender: z.enum(['male', 'female', 'non-binary', 'prefer-not-to-say']),
-  strengths: z.string().max(500).optional(),
-  weaknesses: z.string().max(500).optional(),
-  preferences: z.string().max(500).optional(),
-  learningDuration: z.number().min(25, 'Minimum 25 days').max(365, 'Maximum 365 days')
-});
+// Export types
+export type RegisterRequest = z.infer<typeof RegisterSchema>;
+export type LoginRequest = z.infer<typeof LoginSchema>;
+export type DailyCheckinRequest = z.infer<typeof DailyCheckinSchema>;
+export type CreateSkillRequest = z.infer<typeof CreateSkillSchema>;
+export type UpdateSkillRequest = z.infer<typeof UpdateSkillSchema>;
