@@ -1,6 +1,4 @@
-
 /** @type {import('next').NextConfig} */
-
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
@@ -33,4 +31,4 @@ const nextConfig = {
   }
 };
 
-module.exports = withPWA(nextConfig);
+module.exports = nextConfig;
