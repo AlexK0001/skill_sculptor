@@ -62,8 +62,9 @@
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^14.3.1",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20.11.0",
+    "@types/node": "^20.19.18",
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.0",
@@ -79,5 +80,9 @@
   },
   "overrides": {
     "ansi-color": "github:@myrotvorets/ansi-color#master"
+  },
+  "jest": {
+    "modulePathIgnorePatterns": ["<rootDir>/.next/"],
+    "testPathIgnorePatterns": ["/node_modules/", "/.next/"]
   }
 }

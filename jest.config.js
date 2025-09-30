@@ -24,9 +24,14 @@ const customJestConfig = {
     '**/*.{spec,test}.{js,jsx,ts,tsx}',
   ],
   transformIgnorePatterns: [
-    '/node_modules/',
-    '^.+\\.module\\.(css|sass|scss)$',
+    '/node_modules/(?!(bson|mongodb)/)',
+    '^.+\\.module\\.(css|sass|scss)
+};
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+module.exports = createJestConfig(customJestConfig);,
   ],
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

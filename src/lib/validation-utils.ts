@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Secure ObjectId validation
 export function isValidObjectId(id: string): boolean {
-  return ObjectId.isValid(id) && new ObjectId(id).toString() === id;
+  if (!id || typeof id !== 'string') return false;
+  return /^[0-9a-fA-F]{24}$/.test(id);
 }
 
 // Secure ObjectId creation with validation
@@ -16,17 +17,45 @@ export function createObjectId(id: string): ObjectId | null {
 }
 
 // Error response utility
-export function createErrorResponse(message: string, status: number = 400) {
+export function createErrorResponse(
+  message: string,
+  status = 400
+): NextResponse {
   return NextResponse.json(
-    { error: message, timestamp: new Date().toISOString() },
+    {
+      success: false,
+      error: message,
+    },
     { status }
   );
 }
 
-// Success response utility
-export function createSuccessResponse(data: any, status: number = 200) {
+/**
+ * Handle Zod validation errors
+ */
+export function handleZodError(error: ZodError): NextResponse {
+  const errors = error.errors.map((err) => ({
+    field: err.path.join('.'),
+    message: err.message,
+  }));
+
   return NextResponse.json(
-    { ...data, timestamp: new Date().toISOString() },
+    {
+      success: false,
+      error: 'Validation failed',
+      details: errors,
+    },
+    { status: 400 }
+  );
+}
+
+// Success response utility
+export function createSuccessResponse<T>(data: T, status = 200): NextResponse {
+  return NextResponse.json(
+    {
+      success: true,
+      data,
+    },
     { status }
   );
 }
@@ -39,6 +68,15 @@ export function sanitizeString(input: string | undefined): string | undefined {
 
 // Rate limiting storage (in-memory for now, use Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+/**
+ * Validate email format
+ */
+export function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
 export function checkRateLimit(
   identifier: string,
@@ -65,30 +103,15 @@ export function checkRateLimit(
 }
 
 // Request validation middleware
-export function withRequestValidation(handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse>) {
-  return async (request: NextRequest, ...args: any[]) => {
+export function withRequestValidation(handler: Function) {
+  return async (...args: any[]) => {
     try {
-      // Basic rate limiting
-      const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
-      const rateLimit = checkRateLimit(ip, 100, 15 * 60 * 1000);
-      
-      if (!rateLimit.allowed) {
-        return createErrorResponse('Too many requests. Please try again later.', 429);
-      }
-      
-      // Add security headers to response
-      const response = await handler(request, ...args);
-      
-      // Security headers
-      response.headers.set('X-Content-Type-Options', 'nosniff');
-      response.headers.set('X-Frame-Options', 'DENY');
-      response.headers.set('X-XSS-Protection', '1; mode=block');
-      response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-      
-      return response;
+      return await handler(...args);
     } catch (error) {
-      console.error('Request validation error:', error);
-      return createErrorResponse('Internal server error', 500);
+      if (error instanceof ZodError) {
+        return handleZodError(error);
+      }
+      throw error;
     }
   };
 }
