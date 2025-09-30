@@ -80,9 +80,5 @@
   },
   "overrides": {
     "ansi-color": "github:@myrotvorets/ansi-color#master"
-  },
-  "jest": {
-    "modulePathIgnorePatterns": ["<rootDir>/.next/"],
-    "testPathIgnorePatterns": ["/node_modules/", "/.next/"]
   }
 }

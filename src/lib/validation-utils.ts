@@ -1,6 +1,8 @@
 // src/lib/validation-utils.ts - SECURITY FIX
 import { ObjectId } from 'mongodb';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { z, ZodError } from 'zod';
+
 
 // Secure ObjectId validation
 export function isValidObjectId(id: string): boolean {

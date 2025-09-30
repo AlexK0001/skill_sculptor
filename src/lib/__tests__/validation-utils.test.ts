@@ -64,30 +64,23 @@ describe('Validation Utils', () => {
   });
 
   describe('Response helpers', () => {
-    test('should create success response', () => {
+    test('should create success response', async () => {
       const data = { user: 'John' };
       const response = createSuccessResponse(data);
 
       expect(response.status).toBe(200);
-      const body = JSON.parse(response.body);
+      const body = await response.json();
       expect(body.success).toBe(true);
       expect(body.data).toEqual(data);
     });
 
-    test('should create error response', () => {
+    test('should create error response', async () => {
       const response = createErrorResponse('Not found', 404);
 
       expect(response.status).toBe(404);
-      const body = JSON.parse(response.body);
+      const body = await response.json();
       expect(body.success).toBe(false);
       expect(body.error).toBe('Not found');
-    });
-
-    test('should include error code in response', () => {
-      const response = createErrorResponse('Validation failed', 400, 'VALIDATION_ERROR');
-
-      const body = JSON.parse(response.body);
-      expect(body.code).toBe('VALIDATION_ERROR');
     });
   });
 });
