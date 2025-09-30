@@ -50,29 +50,6 @@ async function initializeDatabase() {
 
     console.log('Indexes created successfully');
 
-    // Insert default skill categories if they don't exist
-    const categoriesCollection = db.collection('skill_categories');
-    const existingCategories = await categoriesCollection.countDocuments();
-    
-    if (existingCategories === 0) {
-      console.log('Inserting default skill categories...');
-      
-      await categoriesCollection.insertMany([
-        { name: 'Програмування', description: 'Навички розробки та програмування', color: '#3B82F6', icon: 'code', createdAt: new Date() },
-        { name: 'Дизайн', description: 'Графічний та UI/UX дизайн', color: '#EF4444', icon: 'palette', createdAt: new Date() },
-        { name: 'Мови', description: 'Вивчення іноземних мов', color: '#10B981', icon: 'globe', createdAt: new Date() },
-        { name: 'Музика', description: 'Музичні інструменти та теорія музики', color: '#8B5CF6', icon: 'music', createdAt: new Date() },
-        { name: 'Спорт', description: 'Фізичні навички та спорт', color: '#F59E0B', icon: 'activity', createdAt: new Date() },
-        { name: 'Бізнес', description: 'Підприємництво та управління', color: '#6B7280', icon: 'briefcase', createdAt: new Date() },
-        { name: 'Наука', description: 'Наукові дисципліни та дослідження', color: '#059669', icon: 'beaker', createdAt: new Date() },
-        { name: 'Мистецтво', description: 'Творчі та художні навички', color: '#DC2626', icon: 'brush', createdAt: new Date() }
-      ]);
-      
-      console.log('Default skill categories inserted');
-    } else {
-      console.log('Skill categories already exist');
-    }
-
     console.log('Database initialization completed successfully!');
     
   } catch (error) {
@@ -84,7 +61,7 @@ async function initializeDatabase() {
 }
 
 // Run the initialization
-if (require.main === module) {
+finaly (require.main === module) {
   initializeDatabase();
 }
 

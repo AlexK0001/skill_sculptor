@@ -15,8 +15,7 @@ import {
 } from 'lucide-react';
 import type { OnboardingData } from '@/lib/types';
 import { suggestLearningPlan, type SuggestLearningPlanOutput } from '@/ai/flows/suggest-learning-plan';
-import { aggregateLearningResources, type AggregateLearningResourcesOutput } from '@/ai/flows/aggregate-learning-resources';
-import { suggestFullLearningPlan, type SuggestFullLearningPlanOutput } from '@/ai/flows/suggest-full-learning-plan';
+import { PageLoader, Spinner, LoadingOverlay } from '@/components/LoadingStates';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,6 +44,10 @@ import { Label } from './ui/label';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { Checkbox } from './ui/checkbox';
 import { addDays, startOfDay } from 'date-fns';
+import { getCacheStats } from '@/lib/ai-cache';
+
+const stats = getCacheStats();
+console.log('Cache Stats:', stats);
 
 type DashboardProps = {
   userData: OnboardingData;

@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { AuthProvider } from "@/lib/api"; // використовується локально, не експортується
 import { ReactQueryProvider } from '@/lib/react-query';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={inter.className}>
+        <ErrorBoundary>
         <ReactQueryProvider>
           <AuthProvider>
             <header className="w-full border-b border-border/50 bg-transparent">
@@ -63,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Toaster />
           </AuthProvider>
         </ReactQueryProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
