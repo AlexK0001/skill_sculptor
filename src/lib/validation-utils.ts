@@ -60,7 +60,7 @@ export function createErrorResponse(
  * Handle Zod validation errors
  */
 export function handleZodError(error: z.ZodError): NextResponse {
-  const errors = error.errors.map((err: z.ZodIssue) => ({
+  const errors = error.issues.map((err) => ({
     field: err.path.join('.'),
     message: err.message,
   }));
