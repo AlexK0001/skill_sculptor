@@ -6,6 +6,14 @@ process.env.JWT_SECRET = 'test-jwt-secret-key';
 process.env.MONGODB_URI = 'mongodb://localhost:27017/test';
 process.env.GOOGLE_API_KEY = 'test-google-api-key';
 
+// Mock MongoDB
+jest.mock('@/lib/mongodb', () => ({
+  ObjectId: jest.fn(),
+  getDatabase: jest.fn(),
+  getUsersCollection: jest.fn(),
+  getSkillsCollection: jest.fn(),
+}));
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -24,7 +32,7 @@ jest.mock('next/navigation', () => ({
   },
 }));
 
-// Suppress console errors during tests (optional)
+// Suppress console errors during tests
 global.console = {
   ...console,
   error: jest.fn(),
