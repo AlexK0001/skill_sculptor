@@ -6,8 +6,9 @@ import { z } from 'zod';
  * Sanitize string input to prevent XSS
  */
 export function sanitizeString(input: string | undefined): string | undefined {
-  if (!input) return undefined;
-  return input.trim().replace(/[<>]/g, '');
+  if (input === undefined || input === null) return undefined;
+  if (input.trim() === '') return '';
+  return input.replace(/<[^>]*>/g, '').trim();
 }
 
 /**

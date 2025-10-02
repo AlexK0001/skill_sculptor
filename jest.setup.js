@@ -2,34 +2,58 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
-// Polyfill для Web APIs
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
 
-// Mock environment variables for tests
-process.env.JWT_SECRET = 'test-jwt-secret-key';
-process.env.MONGODB_URI = 'mongodb://localhost:27017/test';
-process.env.GOOGLE_API_KEY = 'test-google-api-key';
+// Mock Headers
+global.Headers = class Headers extends Map {
+  append(name, value) {
+    this.set(name, value);
+  }
+  getSetCookie() {
+    return [];
+  }
+};
 
-// Mock Request/Response для Next.js
+// Mock Request
 global.Request = class Request {
   constructor(input, init) {
     this.url = input;
     this.method = init?.method || 'GET';
-    this.headers = new Map(Object.entries(init?.headers || {}));
+    this.headers = new Headers(Object.entries(init?.headers || {}));
     this.body = init?.body;
   }
 };
 
+// Mock Response with static json method
 global.Response = class Response {
   constructor(body, init) {
     this.body = body;
     this.status = init?.status || 200;
-    this.headers = new Map(Object.entries(init?.headers || {}));
+    this.statusText = init?.statusText || '';
+    this.headers = new Headers(Object.entries(init?.headers || {}));
+    this.ok = this.status >= 200 && this.status < 300;
   }
   
-  json() {
-    return Promise.resolve(JSON.parse(this.body));
+  async json() {
+    if (typeof this.body === 'string') {
+      return JSON.parse(this.body);
+    }
+    return this.body;
+  }
+  
+  async text() {
+    return String(this.body);
+  }
+  
+  static json(data, init) {
+    return new Response(JSON.stringify(data), {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers || {}),
+      },
+    });
   }
 };
 
@@ -70,4 +94,3 @@ global.console = {
   error: jest.fn(),
   warn: jest.fn(),
 };
-
