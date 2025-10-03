@@ -4,11 +4,37 @@ import { z } from 'zod';
 
 /**
  * Sanitize string input to prevent XSS
+ * Removes all HTML tags and their content
  */
 export function sanitizeString(input: string | undefined): string | undefined {
   if (input === undefined || input === null) return undefined;
-  if (input.trim() === '') return '';
-  return input.replace(/<[^>]*>/g, '').trim();
+  
+  const trimmed = String(input).trim();
+  if (trimmed === '') return '';
+  
+  // Remove script tags with their content
+  let sanitized = trimmed.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  
+  // Remove style tags with their content
+  sanitized = sanitized.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  
+  // Remove all other HTML tags (but keep their text content)
+  sanitized = sanitized.replace(/<[^>]*>/g, '');
+  
+  // Decode common HTML entities
+  sanitized = sanitized
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/');
+  
+  // Remove any remaining tags after decoding
+  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  sanitized = sanitized.replace(/<[^>]*>/g, '');
+  
+  return sanitized.trim();
 }
 
 /**

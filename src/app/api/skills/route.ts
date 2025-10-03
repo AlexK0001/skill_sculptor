@@ -10,9 +10,9 @@ import { z } from 'zod';
 
 // Validation schema for creating skills
 const CreateSkillSchema = z.object({
-  name: z.string().min(1).max(100).transform(s => s.trim()),
-  description: z.string().max(500).optional().transform(s => s?.trim()),
-  category: z.string().max(50).optional().transform(s => s?.trim()),
+  name: z.string().min(1).max(100).transform(s => sanitizeString(s) || ''),
+  description: z.string().max(500).optional().transform(s => sanitizeString(s) || ''),
+  category: z.string().max(50).optional().transform(s => sanitizeString(s) || ''),
   progress: z.number().min(0).max(100).default(0)
 });
 
