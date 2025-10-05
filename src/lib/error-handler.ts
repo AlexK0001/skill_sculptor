@@ -11,7 +11,7 @@ export enum ErrorCode {
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
-  INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR'
+  INTERNAL_ERROR = 'INTERNAL_SERVER_ERROR'
 }
 
 export class APIError extends Error {
@@ -63,7 +63,7 @@ export function createErrorResponse(
     const message = typeof error === 'string' ? error : error.message || 'Unknown error';
     response = {
       error: message,
-      code: ErrorCode.INTERNAL_SERVER_ERROR,
+      code: ErrorCode.INTERNAL_ERROR,
       timestamp: new Date().toISOString()
     };
     status = statusCode || 500;
@@ -80,6 +80,18 @@ export function createErrorResponse(
   return NextResponse.json(response, { status });
 }
 
+// Safe error messages for production
+const SAFE_ERROR_MESSAGES: Record<ErrorCode, string> = {
+  [ErrorCode.VALIDATION_ERROR]: 'Invalid request data',
+  [ErrorCode.AUTHENTICATION_ERROR]: 'Authentication failed',
+  [ErrorCode.AUTHORIZATION_ERROR]: 'Access denied',
+  [ErrorCode.DATABASE_ERROR]: 'Service temporarily unavailable',
+  [ErrorCode.AI_SERVICE_ERROR]: 'AI service unavailable',
+  [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Too many requests',
+  [ErrorCode.NOT_FOUND]: 'Resource not found',
+  [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
+};
+
 export function withErrorHandler(
   handler: (request: NextRequest, ...args: any[]) => Promise<NextResponse>
 ) {
@@ -87,9 +99,30 @@ export function withErrorHandler(
     try {
       return await handler(request, ...args);
     } catch (error) {
-      // Handle specific error types
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      
+      // Log full error in development and production (for monitoring)
+      console.error('[API Error]', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      });
       if (error instanceof APIError) {
-        return createErrorResponse(error);
+        // Production: use safe generic messages
+        const clientMessage = isDevelopment 
+          ? error.message 
+          : SAFE_ERROR_MESSAGES[error.code];
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: clientMessage,
+            code: error.code,
+            // Only include details in development
+            ...(isDevelopment && error.details && { details: error.details }),
+          },
+          { status: error.statusCode }
+        );
       }
       
       if (error instanceof ZodError) {
@@ -132,14 +165,16 @@ export function withErrorHandler(
         );
       }
       
-      // Unknown error
-      console.error('[Unhandled API Error]', error);
-      return createErrorResponse(
-        new APIError(
-          ErrorCode.INTERNAL_SERVER_ERROR,
-          'An unexpected error occurred',
-          500
-        )
+      // Unknown errors - never expose to client
+      return NextResponse.json(
+        {
+          success: false,
+          error: isDevelopment 
+            ? (error instanceof Error ? error.message : 'Unknown error')
+            : 'Internal server error',
+          code: ErrorCode.INTERNAL_ERROR,
+        },
+        { status: 500 }
       );
     }
   };

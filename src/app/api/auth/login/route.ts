@@ -4,9 +4,11 @@ import bcrypt from 'bcryptjs';
 import { getUsersCollection } from '@/lib/mongodb';
 import { userDocumentToUser, type LoginRequest, type AuthResponse, type UserDocument } from '@/lib/types';
 import { JWT_SECRET } from '@/lib/constants';
-
+import { checkAuthRateLimit, getClientIP } from '@/lib/auth-rate-limiter';
 
 export async function POST(request: NextRequest) {
+  const clientIP = getClientIP(request);
+  checkAuthRateLimit(clientIP);
   try {
     const body = await request.json();
     const { email, password } = body;

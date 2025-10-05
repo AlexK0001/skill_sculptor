@@ -8,6 +8,7 @@ import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { AuthProvider } from "@/lib/api"; // використовується локально, не експортується
 import { ReactQueryProvider } from '@/lib/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import LogoutButton from '@/components/LogoutButton';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex items-center gap-3">
                 <ThemeToggle />
                 <GoogleSignInButton />
+                <LogoutButton />
               </div>
             </div>
             </header>

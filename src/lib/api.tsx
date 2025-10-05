@@ -109,11 +109,6 @@ class ApiClient {
     return { error: res.error || "Register failed" };
   }
 
-  async logout() {
-    await this.request("/auth/logout", { method: "POST" }).catch(() => void 0);
-    this.setToken(null);
-  }
-
   async getCurrentUser(): Promise<User | null> {
     const res = await this.request<{ user?: User }>(`/auth/verify`, { method: "GET" });
     return res.data?.user || null;
@@ -138,6 +133,29 @@ class ApiClient {
 
   async deleteSkill(id: string): Promise<ApiResponse<{ success: boolean }>> {
     return this.request<{ success: boolean }>(`/skills/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  async logout(): Promise<{ success: boolean }> {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        // Clear local state
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      console.error('Logout error:', error);
+      return { success: false };
+    }
   }
 }
 

@@ -15,8 +15,8 @@ services:
     environment:
       - NODE_ENV: development
       - NEXT_PUBLIC_API_URL: http://localhost:3000
-      - MONGODB_URI: mongodb://mongo:27017/skill_sculptor
-      - JWT_SECRET: your-super-secret-jwt-key-here
+      - MONGODB_URI: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongo:27017/skill_sculptor?authSource=admin
+      - JWT_SECRET: ${JWT_SECRET}  # Read from .env
       - GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     depends_on:
       - mongo

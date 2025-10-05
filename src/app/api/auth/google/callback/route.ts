@@ -39,6 +39,10 @@ export async function GET(request: NextRequest) {
     });
     const profile = await profileRes.json();
 
+    if (!profile.email_verified) {
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}?error=email_not_verified`);
+    }
+
     // upsert user into DB
     const users = await getUsersCollection();
     const now = new Date();

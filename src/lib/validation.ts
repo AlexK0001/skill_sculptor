@@ -4,7 +4,7 @@ import { z } from 'zod';
 // Registration validation
 export const RegisterSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name too long'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').max(254),
   password: z.string().min(8, 'Password must be at least 8 characters')
     .max(100, 'Password too long')
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase and number')

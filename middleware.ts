@@ -25,8 +25,8 @@ export function middleware(request: NextRequest) {
     // Content Security Policy
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' cdnjs.cloudflare.com",
-      "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
+      "script-src 'self' 'nonce-{RANDOM}' cdnjs.cloudflare.com",
+      "style-src 'self' 'nonce-{RANDOM}' fonts.googleapis.com",
       "font-src 'self' fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' generativelanguage.googleapis.com",
@@ -54,7 +54,9 @@ export function middleware(request: NextRequest) {
     response.headers.set('Pragma', 'no-cache');
     
     // CORS headers for API
-    response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_APP_URL || '*');
+    const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || 
+      (process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : 'http://localhost:3000');
+    response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     response.headers.set('Access-Control-Max-Age', '86400');
