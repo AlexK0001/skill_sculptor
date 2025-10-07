@@ -9,28 +9,15 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'lh3.googleusercontent.com'],
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.pravatar.cc',
-        pathname: '/**',
-      }
+      { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
+      { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
+      { protocol: 'https', hostname: 'i.pravatar.cc', pathname: '/**' }
     ],
   },
   experimental: {
     serverComponentsExternalPackages: ['mongodb']
-  }
-};
-// HTTPS redirect для production
+  },
+  // HTTPS redirect для production
   async redirects() {
     return process.env.NODE_ENV === 'production' ? [
       {

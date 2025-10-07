@@ -11,7 +11,7 @@ export enum ErrorCode {
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
   DATABASE_ERROR = 'DATABASE_ERROR',
-  INTERNAL_ERROR = 'INTERNAL_SERVER_ERROR'
+  INTERNAL_ERROR = 'INTERNAL_ERROR'
 }
 
 export class APIError extends Error {
@@ -85,6 +85,7 @@ const SAFE_ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.VALIDATION_ERROR]: 'Invalid request data',
   [ErrorCode.AUTHENTICATION_ERROR]: 'Authentication failed',
   [ErrorCode.AUTHORIZATION_ERROR]: 'Access denied',
+  [ErrorCode.UNAUTHORIZED]: 'Unauthorized access',
   [ErrorCode.DATABASE_ERROR]: 'Service temporarily unavailable',
   [ErrorCode.AI_SERVICE_ERROR]: 'AI service unavailable',
   [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Too many requests',
