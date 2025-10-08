@@ -1,96 +1,144 @@
-import { MongoClient, Db, Collection } from 'mongodb';
+// src/lib/mongodb.ts - OPTIMIZED FOR VERCEL SERVERLESS
+import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
 
 if (!process.env.MONGODB_URI) {
-  throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
+  throw new Error('Please add your MONGODB_URI to .env.local or environment variables');
 }
 
-const uri = process.env.MONGODB_URI;
-const options = {};
+const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'skill_sculptor';
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+// Global variable to cache the connection across serverless function invocations
+interface CachedConnection {
+  client: MongoClient | null;
+  db: Db | null;
+  promise: Promise<MongoClient> | null;
+}
 
-if (process.env.NODE_ENV === 'development') {
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
+declare global {
+  // eslint-disable-next-line no-var
+  var mongoConnection: CachedConnection | undefined;
+}
+
+const cached: CachedConnection = global.mongoConnection || {
+  client: null,
+  db: null,
+  promise: null,
+};
+
+if (!global.mongoConnection) {
+  global.mongoConnection = cached;
+}
+
+/**
+ * Connect to MongoDB with connection caching for serverless
+ * @returns MongoClient instance
+ */
+export async function connectToDatabase(): Promise<MongoClient> {
+  // Return cached client if available
+  if (cached.client && cached.client.topology?.isConnected()) {
+    console.log('✅ Using cached MongoDB connection');
+    return cached.client;
+  }
+
+  // If connection promise exists, wait for it
+  if (cached.promise) {
+    console.log('⏳ Waiting for existing MongoDB connection...');
+    cached.client = await cached.promise;
+    return cached.client;
+  }
+
+  // Create new connection
+  console.log('🔌 Creating new MongoDB connection...');
+  
+  const options = {
+    maxPoolSize: 10, // Limit connection pool size
+    minPoolSize: 2,
+    maxIdleTimeMS: 60000, // Close idle connections after 60s
+    serverSelectionTimeoutMS: 5000, // Timeout after 5s
+    socketTimeoutMS: 45000,
+    family: 4, // Use IPv4, skip trying IPv6
   };
 
-  if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    globalWithMongo._mongoClientPromise = client.connect();
+  try {
+    cached.promise = MongoClient.connect(MONGODB_URI, options);
+    cached.client = await cached.promise;
+    
+    // Test connection
+    await cached.client.db(MONGODB_DB_NAME).command({ ping: 1 });
+    console.log('✅ MongoDB connected successfully');
+    
+    return cached.client;
+  } catch (error) {
+    cached.promise = null;
+    cached.client = null;
+    console.error('❌ MongoDB connection failed:', error);
+    throw new Error('Failed to connect to database');
   }
-  clientPromise = globalWithMongo._mongoClientPromise;
-} else {
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
 }
 
-export default clientPromise;
-
-// Database helper functions
+/**
+ * Get database instance
+ */
 export async function getDatabase(): Promise<Db> {
-  const client = await clientPromise;
-  return client.db('skill_sculptor');
+  if (cached.db) {
+    return cached.db;
+  }
+
+  const client = await connectToDatabase();
+  cached.db = client.db(MONGODB_DB_NAME);
+  return cached.db;
 }
 
+/**
+ * Get users collection
+ */
 export async function getUsersCollection(): Promise<Collection> {
   const db = await getDatabase();
   return db.collection('users');
 }
 
+/**
+ * Get skills collection
+ */
 export async function getSkillsCollection(): Promise<Collection> {
   const db = await getDatabase();
   return db.collection('skills');
 }
 
-export async function getSkillGoalsCollection(): Promise<Collection> {
+/**
+ * Get learning plans collection
+ */
+export async function getLearningPlansCollection(): Promise<Collection> {
   const db = await getDatabase();
-  return db.collection('skill_goals');
+  return db.collection('learning_plans');
 }
 
-export async function getSkillProgressCollection(): Promise<Collection> {
-  const db = await getDatabase();
-  return db.collection('skill_progress');
+/**
+ * Graceful shutdown - cleanup connections
+ * Note: In serverless, this might not always be called
+ */
+export async function closeDatabaseConnection(): Promise<void> {
+  if (cached.client) {
+    await cached.client.close();
+    cached.client = null;
+    cached.db = null;
+    cached.promise = null;
+    console.log('🔌 MongoDB connection closed');
+  }
 }
 
-export async function getSkillCategoriesCollection(): Promise<Collection> {
-  const db = await getDatabase();
-  return db.collection('skill_categories');
-}
+// Export ObjectId for convenience
+export { ObjectId };
 
-export async function getFilesCollection(): Promise<Collection> {
-  const db = await getDatabase();
-  return db.collection('files');
-}
-
-// Initialize collections with indexes
-export async function initializeDatabase() {
-  const db = await getDatabase();
-  
-  // Create indexes for better performance
-  await db.collection('users').createIndex({ email: 1 }, { unique: true });
-  await db.collection('skills').createIndex({ userId: 1 });
-  await db.collection('skills').createIndex({ category: 1 });
-  await db.collection('skill_goals').createIndex({ skillId: 1 });
-  await db.collection('skill_progress').createIndex({ skillId: 1 });
-  await db.collection('skill_progress').createIndex({ loggedAt: -1 });
-  await db.collection('files').createIndex({ userId: 1 });
-  await db.collection('files').createIndex({ skillId: 1 });
-  
-  // Insert default skill categories if they don't exist
-  const categoriesCollection = await getSkillCategoriesCollection();
-  const existingCategories = await categoriesCollection.countDocuments();
-  
-  if (existingCategories === 0) {
-    await categoriesCollection.insertMany([
-      { name: 'Програмування', description: 'Навички розробки та програмування', color: '#3B82F6', icon: 'code', createdAt: new Date() },
-      { name: 'Дизайн', description: 'Графічний та UI/UX дизайн', color: '#EF4444', icon: 'palette', createdAt: new Date() },
-      { name: 'Мови', description: 'Вивчення іноземних мов', color: '#10B981', icon: 'globe', createdAt: new Date() },
-      { name: 'Музика', description: 'Музичні інструменти та теорія музики', color: '#8B5CF6', icon: 'music', createdAt: new Date() },
-      { name: 'Спорт', description: 'Фізичні навички та спорт', color: '#F59E0B', icon: 'activity', createdAt: new Date() },
-      { name: 'Бізнес', description: 'Підприємництво та управління', color: '#6B7280', icon: 'briefcase', createdAt: new Date() },
-      { name: 'Наука', description: 'Наукові дисципліни та дослідження', color: '#059669', icon: 'beaker', createdAt: new Date() },
-      { name: 'Мистецтво', description: 'Творчі та художні навички', color: '#DC2626', icon: 'brush', createdAt: new Date() }
-    ]);
+// Health check function for monitoring
+export async function checkDatabaseHealth(): Promise<boolean> {
+  try {
+    const client = await connectToDatabase();
+    await client.db(MONGODB_DB_NAME).command({ ping: 1 });
+    return true;
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    return false;
   }
 }
