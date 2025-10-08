@@ -1,4 +1,4 @@
-// src/app/api/ai/daily-plan/route.ts - OPTIMIZED WITH CACHE (FIXED TYPES)
+// src/app/api/ai/daily-plan/route.ts - WITH FALLBACK SUPPORT
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { checkAIRateLimit, getRateLimitStatusAsync } from '@/lib/rate-limiter';
@@ -7,6 +7,7 @@ import { withRequestValidation, createSuccessResponse } from '@/lib/validation-u
 import { DailyCheckinSchema } from '@/lib/validation';
 import { suggestLearningPlan, type SuggestLearningPlanOutput } from '@/ai/flows/suggest-learning-plan';
 import { getFromCache, saveToCache } from '@/lib/ai-cache';
+import { getFallbackPlan, isQuotaError } from '@/lib/ai-fallback-templates';
 
 export const POST = withRequestValidation(withErrorHandler(async (request: NextRequest) => {
   // Authenticate user
@@ -32,12 +33,17 @@ export const POST = withRequestValidation(withErrorHandler(async (request: NextR
       plan: cachedPlan,
       generatedAt: new Date().toISOString(),
       rateLimitRemaining: rateStatus.remaining,
-      cached: true
+      cached: true,
+      fallback: false
     });
   }
 
   // Not in cache - check rate limit
   await checkAIRateLimit(user.id, 'daily-plan');
+
+  // Try AI generation with fallback support
+  let plan: SuggestLearningPlanOutput;
+  let usedFallback = false;
 
   try {
     // Generate AI plan with timeout
@@ -58,67 +64,58 @@ export const POST = withRequestValidation(withErrorHandler(async (request: NextR
       setTimeout(() => reject(new Error('AI request timeout')), 30000)
     );
 
-    const plan = await Promise.race([planPromise, timeoutPromise]);
+    plan = await Promise.race([planPromise, timeoutPromise]);
 
     // Validate AI response
     if (!plan || !plan.learningPlan || !Array.isArray(plan.learningPlan)) {
-      throw new APIError(
-        ErrorCode.AI_SERVICE_ERROR,
-        'Invalid AI response format',
-        500
-      );
+      throw new Error('Invalid AI response format');
     }
 
     // Sanitize AI response
-    const sanitizedPlan: SuggestLearningPlanOutput = {
+    plan = {
       learningPlan: plan.learningPlan
         .filter((task: string) => typeof task === 'string' && task.length > 0)
         .slice(0, 10)
         .map((task: string) => task.trim().substring(0, 200))
     };
 
-    // Save to cache
-    saveToCache('daily-plan', cacheInput, sanitizedPlan);
-
-    // Get remaining rate limit
-    const rateStatus = await getRateLimitStatusAsync(user.id, 'daily-plan');
-
     console.log('[AI] Generated new plan - API call made');
-    return createSuccessResponse({
-      plan: sanitizedPlan,
-      generatedAt: new Date().toISOString(),
-      rateLimitRemaining: rateStatus.remaining,
-      cached: false
-    });
+
   } catch (error: any) {
-    // Handle specific AI errors
-    if (error.message?.includes('timeout')) {
-      throw new APIError(
-        ErrorCode.AI_SERVICE_ERROR,
-        'AI service is taking too long to respond. Please try again.',
-        408
-      );
+    console.warn('[AI] Primary generation failed, using fallback:', error.message);
+
+    // Check if it's a quota error (don't retry)
+    if (isQuotaError(error)) {
+      console.error('[AI] QUOTA EXCEEDED - Using fallback templates');
     }
 
-    if (error.message?.includes('quota') || error.message?.includes('limit')) {
-      throw new APIError(
-        ErrorCode.AI_SERVICE_ERROR,
-        'AI service is temporarily unavailable due to quota limits.',
-        503
-      );
-    }
-
-    // Re-throw known errors
-    if (error instanceof APIError) {
-      throw error;
-    }
-
-    // Unknown AI error
-    console.error('[AI Service Error]', error);
-    throw new APIError(
-      ErrorCode.AI_SERVICE_ERROR,
-      'AI service encountered an error. Please try again later.',
-      500
+    // Use fallback template
+    const fallbackTasks = getFallbackPlan(
+      validatedData.mood,
+      validatedData.learningGoal || "General learning"
     );
+
+    plan = {
+      learningPlan: fallbackTasks
+    };
+
+    usedFallback = true;
   }
+
+  // Save to cache (even fallback plans to reduce load)
+  saveToCache('daily-plan', cacheInput, plan);
+
+  // Get remaining rate limit
+  const rateStatus = await getRateLimitStatusAsync(user.id, 'daily-plan');
+
+  return createSuccessResponse({
+    plan: plan,
+    generatedAt: new Date().toISOString(),
+    rateLimitRemaining: rateStatus.remaining,
+    cached: false,
+    fallback: usedFallback,
+    ...(usedFallback && {
+      message: 'Using curated learning plan. AI service will be available soon.'
+    })
+  });
 }));
