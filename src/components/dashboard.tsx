@@ -257,7 +257,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 ) : (
                   <Sparkles className="mr-2 size-4" />
                 )}
-                {hasCheckedInToday ? "Today's Goal" : 'Daily Check-in'}
+                {hasCheckedInToday ? "Today&apos;s Goal" : 'Daily Check-in'}
               </Button>
 
               <Dialog open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
@@ -267,7 +267,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                       How are you today?
                     </DialogTitle>
                     <DialogDescription>
-                      Let's tailor a plan for your day.
+                      Let&apos;s tailor a plan for your day.
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleCheckinSubmit} className="space-y-4">
@@ -382,7 +382,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center gap-2">
                     <Target />
-                    Today's Goal
+                    Today&apos;s Goal
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -404,7 +404,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                   ) : (
                     <div className="text-muted-foreground">
                       <p>No plan generated for today.</p>
-                      <p>Click on "Daily Check-in" to get started!</p>
+                      <p>Click on &quot;Daily Check-in&quot; to get started!</p>
                     </div>
                   )}
                 </CardContent>

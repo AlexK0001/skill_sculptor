@@ -36,9 +36,17 @@ if (!global.mongoConnection) {
  */
 export async function connectToDatabase(): Promise<MongoClient> {
   // Return cached client if available
-  if (cached.client && cached.client.topology?.isConnected()) {
-    console.log('✅ Using cached MongoDB connection');
-    return cached.client;
+  if (cached.client) {
+    try {
+      // Test if connection is still alive
+      await cached.client.db(MONGODB_DB_NAME).admin().ping();
+      console.log('✅ Using cached MongoDB connection');
+      return cached.client;
+    } catch (error) {
+      console.log('⚠️ Cached connection lost, reconnecting...');
+      cached.client = null;
+      cached.promise = null;
+    }
   }
 
   // If connection promise exists, wait for it
