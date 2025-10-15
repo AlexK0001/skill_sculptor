@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import React from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
-import { AuthProvider } from "@/lib/api"; // використовується локально, не експортується
+import { AuthProvider } from "@/lib/api";
 import { ReactQueryProvider } from '@/lib/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import LogoutButton from '@/components/LogoutButton';
@@ -15,7 +15,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
   title: 'SkillSculptor',
   description: 'Shape Your Future - AI-powered personalized learning',
-  manifest: '/manifest.json',
+  // manifest: '/manifest.json', 
   themeColor: '#3399FF',
   viewport: {
     width: 'device-width',

@@ -1,5 +1,5 @@
 'use client';
-
+import "./globals.css";
 import { useState } from 'react';
 import Onboarding from '@/components/onboarding';
 import Dashboard from '@/components/dashboard';
