@@ -15,7 +15,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
   title: 'SkillSculptor',
   description: 'Shape Your Future - AI-powered personalized learning',
-  // manifest: '/manifest.json', 
+  manifest: '/manifest.json', 
   themeColor: '#3399FF',
   viewport: {
     width: 'device-width',
