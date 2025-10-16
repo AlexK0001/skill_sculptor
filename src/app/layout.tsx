@@ -10,7 +10,7 @@ import { ReactQueryProvider } from '@/lib/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import LogoutButton from '@/components/LogoutButton';
 
-const inter = Inter({ subsets: ["latin"] });
+// const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: 'SkillSculptor',
@@ -44,7 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={inter.className}>
+      {/* <body className={inter.className}> */}
+      <body>
         <ErrorBoundary>
         <ReactQueryProvider>
           <AuthProvider>
