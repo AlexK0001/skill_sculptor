@@ -4,16 +4,16 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 
 export default function LogoutButton() {
-  const router = useRouter();
+  const { logout } = useAuth();
   const [isLoading, setIsLoading] = React.useState(false);
 
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await LogOut();
+      await logout();
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {

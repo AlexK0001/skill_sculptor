@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 
 export const OnboardingSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  email: z.string().email("Valid email is required").optional(),
   gender: z.string().min(1, "Gender is required"),
   age: z
     .preprocess((val) => Number(val), z.number().min(1, "Age must be positive")),
@@ -20,7 +21,7 @@ export type OnboardingData = z.infer<typeof OnboardingSchema>;
 // MongoDB Document interfaces
 export interface UserDocument {
   _id?: ObjectId;
-  email: string;
+  email?: string;
   name: string;
   passwordHash: string;
   avatarUrl?: string;
@@ -86,7 +87,7 @@ export interface FileDocument {
 // API interfaces (without MongoDB ObjectId)
 export interface User {
   id: string;
-  email: string;
+  email?: string;
   name: string;
   avatarUrl?: string;
   createdAt?: Date;

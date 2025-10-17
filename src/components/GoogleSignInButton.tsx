@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { usePathname } from "next/navigation";
 import { LogIn } from "lucide-react";
 
 

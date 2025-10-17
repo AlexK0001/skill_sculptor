@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { User, Skill } from "@/lib/types";
+// export { useAuth, AuthProvider } from './auth-context';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -11,6 +12,12 @@ interface ApiContextType {
   post: (endpoint: string, data?: any) => Promise<any>;
   put: (endpoint: string, data?: any) => Promise<any>;
   delete: (endpoint: string) => Promise<any>;
+  // Skill methods
+  getSkills: (userId: string) => Promise<{ error?: string; data?: any[] }>;
+  createSkill: (userId: string, skill: any) => Promise<{ error?: string; data?: any }>;
+  updateSkill: (skillId: string, skill: any) => Promise<{ error?: string; data?: any }>;
+  deleteSkill: (skillId: string) => Promise<{ error?: string }>;
+  getCurrentUser: () => Promise<any>;
 }
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
@@ -59,6 +66,55 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
       }),
     delete: (endpoint: string) =>
       makeRequest(endpoint, { method: 'DELETE' }),
+
+    // Skill CRUD methods
+    getSkills: async (userId: string) => {
+      try {
+        const response = await makeRequest('/skills', { method: 'GET' });
+        return { data: response.skills || [] };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    
+    createSkill: async (userId: string, skill: any) => {
+      try {
+        const response = await makeRequest('/skills', {
+          method: 'POST',
+          body: JSON.stringify(skill),
+        });
+        return { data: response.skill };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    
+    updateSkill: async (skillId: string, skill: any) => {
+      try {
+        const response = await makeRequest(`/skills/${skillId}`, {
+          method: 'PUT',
+          body: JSON.stringify(skill),
+        });
+        return { data: response.skill };
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    
+    deleteSkill: async (skillId: string) => {
+      try {
+        await makeRequest(`/skills/${skillId}`, { method: 'DELETE' });
+        return {};
+      } catch (error: any) {
+        return { error: error.message };
+      }
+    },
+    
+    getCurrentUser: async () => {
+      // Return current user by verifying token via apiClient
+      const u = await apiClient.getCurrentUser();
+      return u;
+    },
   };
 
   return <ApiContext.Provider value={api}>{children}</ApiContext.Provider>;
