@@ -310,7 +310,8 @@ export default function Dashboard({ userData }: DashboardProps) {
           <main className="p-4 md:p-6 lg:p-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
             <Card className="lg:col-span-3 bg-card/80 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between">
-                <div>
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
                   <CardTitle className="font-headline">
                     Welcome Back, {userData.name}!
                   </CardTitle>
@@ -424,13 +425,30 @@ export default function Dashboard({ userData }: DashboardProps) {
               <CardContent className="flex justify-center">
                 <Calendar
                   mode="multiple"
-                  selected={daysOff}
-                  onSelect={(value) => setDaysOff(value ?? [])}
+                  selected={[...daysOff, ...completedDays]}
+                  onSelect={(dates) => {
+                    if (dates) {
+                      // Filter out completed days (they can't be unselected)
+                      const newDaysOff = dates.filter(
+                      (date) => !completedDays.some((d) => d.getTime() === date.getTime())
+                      );
+                      setDaysOff(newDaysOff);
+                    }
+                  }}
+                  disabled={(date) => {
+                      // Disable past dates and completed days
+                    const today = startOfDay(new Date());
+                    return date < today || completedDays.some((d) => d.getTime() === date.getTime());
+                  }}
                   onDayClick={handleDayClick}
                   className="rounded-md border"
                   modifiers={{
                     off: daysOff,
                     completed: completedDays,
+                  }}
+                  modifiersClassNames={{
+                    completed: 'rdp-day_completed',
+                    off: 'rdp-day_off',
                   }}
                   modifiersStyles={{
                     off: {

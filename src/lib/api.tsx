@@ -4,7 +4,65 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { User, Skill } from "@/lib/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+
+interface ApiContextType {
+  get: (endpoint: string) => Promise<any>;
+  post: (endpoint: string, data?: any) => Promise<any>;
+  put: (endpoint: string, data?: any) => Promise<any>;
+  delete: (endpoint: string) => Promise<any>;
+}
+
+const ApiContext = createContext<ApiContextType | undefined>(undefined);
+
+export function ApiProvider({ children }: { children: React.ReactNode }) {
+  const makeRequest = async (
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<any> => {
+    try {
+      const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+      
+      const response = await fetch(url, {
+        ...options,
+        credentials: 'include', // Include cookies
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Request failed');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  };
+
+  const api: ApiContextType = {
+    get: (endpoint: string) => makeRequest(endpoint, { method: 'GET' }),
+    post: (endpoint: string, data?: any) =>
+      makeRequest(endpoint, {
+        method: 'POST',
+        body: data ? JSON.stringify(data) : undefined,
+      }),
+    put: (endpoint: string, data?: any) =>
+      makeRequest(endpoint, {
+        method: 'PUT',
+        body: data ? JSON.stringify(data) : undefined,
+      }),
+    delete: (endpoint: string) =>
+      makeRequest(endpoint, { method: 'DELETE' }),
+  };
+
+  return <ApiContext.Provider value={api}>{children}</ApiContext.Provider>;
+}
 
 export interface ApiResponse<T = any> {
   data?: T;
@@ -234,5 +292,9 @@ export function useAuth(): AuthContextType {
 }
 
 export function useApi() {
-  return apiClient;
+  const context = useContext(ApiContext);
+  if (context === undefined) {
+    throw new Error('useApi must be used within an ApiProvider');
+  }
+  return context;
 }

@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function LogoutButton() {
@@ -13,22 +13,7 @@ export default function LogoutButton() {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        // Clear client-side data
-        if (typeof window !== 'undefined') {
-          localStorage.clear();
-          sessionStorage.clear();
-        }
-        
-        // Redirect to home
-        router.push('/');
-        router.refresh();
-      }
+      await LogOut();
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -37,13 +22,17 @@ export default function LogoutButton() {
   };
 
   return (
-    <Button 
-      variant="ghost" 
-      size="sm" 
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={handleLogout}
       disabled={isLoading}
     >
-      <LogOut className="h-4 w-4 mr-2" />
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <LogOut className="h-4 w-4 mr-2" />
+      )}
       {isLoading ? 'Logging out...' : 'Logout'}
     </Button>
   );
