@@ -1,4 +1,3 @@
-// src/app/login/page.tsx - LOGIN PAGE
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -17,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import Image from "next/image";
 
 export default function LoginPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,7 +113,7 @@ export default function LoginPage() {
         className="w-full max-w-sm text-lg py-6 flex items-center justify-center gap-3"
         onClick={handleGoogleSignIn}
       >
-        <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
+        <Image src="/google-icon.svg" alt="Google" className="w-5 h-5" />
         Sign in with Google
       </Button>
 

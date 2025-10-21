@@ -1,4 +1,4 @@
-// src/app/layout.tsx - UPDATED WITH AUTH CONTEXT
+
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,11 +17,7 @@ export const metadata = {
   description: 'Shape Your Future - AI-powered personalized learning',
   manifest: '/manifest.json',
   themeColor: '#3399FF',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+
   icons: {
     icon: '/icons/icon-192x192.png',
     shortcut: '/icons/icon-192x192.png',
@@ -33,6 +29,12 @@ export const metadata = {
     title: 'SkillSculptor',
   },
 };
+
+export const viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  };
 
 function HeaderContent() {
   return (

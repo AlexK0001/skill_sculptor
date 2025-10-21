@@ -1,4 +1,3 @@
-// src/app/page.tsx - PROTECTED HOME PAGE (FINAL FIX)
 'use client';
 
 import "./globals.css";
