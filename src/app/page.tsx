@@ -1,4 +1,4 @@
-// src/app/page.tsx - PROTECTED HOME PAGE
+// src/app/page.tsx - PROTECTED HOME PAGE (FINAL FIX)
 'use client';
 
 import "./globals.css";
@@ -22,6 +22,23 @@ export default function Home() {
     }
   }, [isLoading, isAuthenticated, router]);
 
+  // Convert user to OnboardingData if available
+  // NOTE: This useEffect must run unconditionally alongside other hooks
+  useEffect(() => {
+    if (user && !userData) {
+      setUserData({
+        name: user.name,
+        age: 25,
+        gender: 'not specified',
+        preferences: 'Interactive learning',
+        strengths: 'Eager to learn',
+        weaknesses: 'Need more practice',
+        learningGoal: 'General learning',
+        learningDuration: 30,
+      });
+    }
+  }, [user, userData]);
+
   // Show loading while checking auth
   if (isLoading) {
     return <PageLoader message="Loading your workspace..." />;
@@ -31,24 +48,6 @@ export default function Home() {
   if (!isAuthenticated) {
     return null;
   }
-
-  // Convert user to OnboardingData if available
-  useEffect(() => {
-    if (user && !userData) {
-      // Try to load saved onboarding data from user profile
-      // For now, use basic user data
-      setUserData({
-        name: user.name,
-        email: user.email,
-        age: 25, // Default, can be updated later
-        gender: 'not specified',
-        preferences: 'Interactive learning',
-        strengths: 'Eager to learn',
-        weaknesses: 'Need more practice',
-        learningGoal: 'General learning',
-      });
-    }
-  }, [user, userData]);
 
   return userData ? (
     <Dashboard userData={userData} />
