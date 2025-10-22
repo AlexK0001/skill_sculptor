@@ -4,7 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import { LogIn } from "lucide-react";
-
+import Image from "next/image";
 
 export default function GoogleSignInButton({ 
   className = "",
@@ -22,7 +22,7 @@ export default function GoogleSignInButton({
   return (
     <a href="/api/auth/google" className={className} aria-label="Sign in with Google">
       <Button variant="default" size="sm" className="inline-flex items-center gap-2">
-        {showIcon && <img src="/google-icon.svg" alt="Google" className="w-4 h-4" />}
+        {showIcon && <Image src="/google-icon.svg" alt="Google" className="w-4 h-4" />}
         <span>Sign in with Google</span>
       </Button>
     </a>

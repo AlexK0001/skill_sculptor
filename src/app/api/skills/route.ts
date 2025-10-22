@@ -8,6 +8,9 @@ import { withErrorHandler, APIError, ErrorCode } from '@/lib/error-handler';
 import { withRequestValidation, createSuccessResponse, sanitizeString } from '@/lib/validation-utils';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Validation schema for creating skills
 const CreateSkillSchema = z.object({
   name: z.string().min(1).max(100).transform(s => sanitizeString(s) || ''),

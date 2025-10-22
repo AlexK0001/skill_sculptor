@@ -9,6 +9,9 @@ import { suggestLearningPlan, type SuggestLearningPlanOutput } from '@/ai/flows/
 import { getFromCache, saveToCache } from '@/lib/ai-cache';
 import { getFallbackPlan, isQuotaError } from '@/lib/ai-fallback-templates';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export const POST = withRequestValidation(withErrorHandler(async (request: NextRequest) => {
   // Authenticate user
   const user = await requireAuth()(request);

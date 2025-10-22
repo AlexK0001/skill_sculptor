@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {

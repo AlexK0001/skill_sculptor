@@ -6,6 +6,9 @@ import { userDocumentToUser, type LoginRequest, type AuthResponse, type UserDocu
 import { JWT_SECRET } from '@/lib/constants';
 import { checkAuthRateLimit, getClientIP } from '@/lib/auth-rate-limiter';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   const clientIP = getClientIP(request);
   checkAuthRateLimit(clientIP);

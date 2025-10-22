@@ -4,6 +4,8 @@ import { getSkillsCollection } from '@/lib/mongodb';
 import { skillDocumentToSkill, type UpdateSkillRequest, type SkillDocument } from '@/lib/types';
 import { verifyToken } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 interface RouteContext {
   params: { id: string };
