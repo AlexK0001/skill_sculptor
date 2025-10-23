@@ -257,7 +257,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 ) : (
                   <Sparkles className="mr-2 size-4" />
                 )}
-                {hasCheckedInToday ? "Today&apos;s Goal" : 'Daily Check-in'}
+                {hasCheckedInToday ? "Today{'\u2019'}s Goal" : 'Daily Check-in'}
               </Button>
 
               <Dialog open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
@@ -383,7 +383,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center gap-2">
                     <Target />
-                    Today&apos;s Goal
+                    Today{'\u2019'}s Goal
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
