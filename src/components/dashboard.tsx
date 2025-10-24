@@ -257,7 +257,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 ) : (
                   <Sparkles className="mr-2 size-4" />
                 )}
-                {hasCheckedInToday ? "Today{'\u2019'}s Goal" : 'Daily Check-in'}
+                {hasCheckedInToday ? "Today's Goal" : 'Daily Check-in'}
               </Button>
 
               <Dialog open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
@@ -383,7 +383,7 @@ export default function Dashboard({ userData }: DashboardProps) {
                 <CardHeader>
                   <CardTitle className="font-headline flex items-center gap-2">
                     <Target />
-                    Today{'\u2019'}s Goal
+                    {`Today's Goal`}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -519,6 +519,66 @@ export default function Dashboard({ userData }: DashboardProps) {
                   </div>
                 ))}
               </div>
+
+{tasks && tasks.length > 0 && (
+  <div className="mt-6 pt-4 border-t border-border">
+    <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      </svg>
+      Helpful Resources
+    </h4>
+    <div className="space-y-2">
+      <a 
+        href={`https://www.google.com/search?q=${encodeURIComponent(userData.learningGoal + ' tutorial')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        Search tutorials on Google
+      </a>
+      
+      <a 
+        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(userData.learningGoal + ' tutorial')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        Watch video tutorials on YouTube
+      </a>
+      
+      <a 
+        href={`https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(userData.learningGoal)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        Read documentation (MDN)
+      </a>
+
+      <a 
+        href={`https://stackoverflow.com/search?q=${encodeURIComponent(userData.learningGoal)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        Find solutions on Stack Overflow
+      </a>
+    </div>
+  </div>
+)}
 
               <div className="flex justify-end gap-2 mt-4">
                 <Button
