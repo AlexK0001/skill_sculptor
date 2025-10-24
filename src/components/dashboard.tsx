@@ -1,607 +1,326 @@
+// src/components/dashboard.tsx - UPDATED with progress persistence
 'use client';
 
-import * as React from 'react';
-import {
-  BarChart3,
-  BookOpen,
-  CalendarDays,
-  CheckCircle2,
-  Loader2,
-  Sparkles,
-  Target,
-  Check,
-} from 'lucide-react';
-import type { OnboardingData } from '@/lib/types';
-import { PageLoader, LoadingOverlay } from '@/components/LoadingStates';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarSeparator,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Target, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useProgress } from '@/hooks/use-progress';
 import { useToast } from '@/hooks/use-toast';
-import { Logo } from './icons';
-import { Textarea } from './ui/textarea';
-import { Label } from './ui/label';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { Checkbox } from './ui/checkbox';
-import { addDays, startOfDay } from 'date-fns';
+import type { OnboardingData } from '@/lib/types';
+import type { DailyTask } from '@/lib/types-progress';
 
-type DashboardProps = {
+interface DashboardProps {
   userData: OnboardingData;
-};
-
-type Task = {
-  id: number;
-  text: string;
-  completed: boolean;
-};
-
-const progressData = [
-  { name: 'Week 1', tasks: 4 },
-  { name: 'Week 2', tasks: 8 },
-  { name: 'Week 3', tasks: 6 },
-  { name: 'Week 4', tasks: 10 },
-  { name: 'Week 5', tasks: 7 },
-];
+}
 
 export default function Dashboard({ userData }: DashboardProps) {
-  const [daysOff, setDaysOff] = React.useState<Date[]>([]);
-  const [completedDays, setCompletedDays] = React.useState<Date[]>([]);
-  const [tasks, setTasks] = React.useState<Task[]>([]);
-  const [isPlanLoading, setIsPlanLoading] = React.useState(false);
-  const [isCheckinOpen, setIsCheckinOpen] = React.useState(false);
-  const [isDailyPlanOpen, setIsDailyPlanOpen] = React.useState(false);
-  const [lastCheckinDate, setLastCheckinDate] = React.useState<Date | null>(null);
   const { toast } = useToast();
+  const {
+    progress,
+    stats,
+    loading,
+    updateDayProgress,
+    getDayProgress,
+    getTodayDate,
+    hasTodayCheckin,
+  } = useProgress();
 
-  const handleDayClick = (day: Date) => {
-    setDaysOff((prev) =>
-      prev.some((d) => d.getTime() === day.getTime())
-        ? prev.filter((d) => d.getTime() !== day.getTime())
-        : [...prev, day]
-    );
-  };
+  // States
+  const [showCheckin, setShowCheckin] = useState(false);
+  const [mood, setMood] = useState('');
+  const [dailyPlans, setDailyPlans] = useState('');
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [todayTasks, setTodayTasks] = useState<DailyTask[]>([]);
 
-  const handleCheckinSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const mood = formData.get('mood') as string;
-    const dailyPlans = formData.get('dailyPlans') as string;
+  // Load today's tasks on mount
+  useEffect(() => {
+    const today = getTodayDate();
+    const dayProgress = getDayProgress(today);
+    
+    if (dayProgress && dayProgress.tasks) {
+      setTodayTasks(dayProgress.tasks);
+    }
+    
+    // Show check-in only if not done today
+    if (!hasTodayCheckin() && !loading) {
+      setShowCheckin(true);
+    }
+  }, [getDayProgress, getTodayDate, hasTodayCheckin, loading]);
 
-    setIsPlanLoading(true);
-    setIsCheckinOpen(false);
-    setIsDailyPlanOpen(true);
-    setLastCheckinDate(startOfDay(new Date()));
+  // Auto-save tasks when they change (debounced)
+  useEffect(() => {
+    if (todayTasks.length === 0) return;
+    
+    const timeout = setTimeout(async () => {
+      const today = getTodayDate();
+      await updateDayProgress(today, todayTasks, mood, dailyPlans);
+    }, 1000); // Save after 1 second of inactivity
+    
+    return () => clearTimeout(timeout);
+  }, [todayTasks, mood, dailyPlans, getTodayDate, updateDayProgress]);
+
+  // Generate daily plan
+  const handleGeneratePlan = async () => {
+    if (!mood.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please tell us how you&apos;re feeling',
+      });
+      return;
+    }
+
+    setGeneratingPlan(true);
 
     try {
-      // Call API endpoint instead of direct AI call
       const response = await fetch('/api/ai/daily-plan', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           mood,
-          dailyPlans,
+          dailyPlans: dailyPlans || 'Regular day',
           learningGoal: userData.learningGoal,
           age: userData.age,
           gender: userData.gender,
-          strengths: userData.strengths || 'Eager to learn',
-          weaknesses: userData.weaknesses || 'Need more practice',
-          preferences: userData.preferences || 'Interactive learning',
+          strengths: userData.strengths,
+          weaknesses: userData.weaknesses,
+          preferences: userData.preferences,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate plan');
-      }
+      if (!response.ok) throw new Error('Failed to generate plan');
 
-      const result = await response.json();
-      
-      if (result.success && result.data?.plan?.learningPlan) {
-        const planTasks = result.data.plan.learningPlan.map((task: string, index: number) => ({
-          id: index,
-          text: task,
-          completed: false,
-        }));
-        setTasks(planTasks);
+      const data = await response.json();
+      const plan = data.plan?.learningPlan || [];
 
-        // Show cache status in toast
-        if (result.data.cached) {
-          toast({
-            title: 'Plan loaded from cache',
-            description: 'This saved an API call! ♻️',
-          });
-        }
-      } else {
-        throw new Error('Invalid response format');
-      }
-    } catch (error) {
-      console.error(error);
+      // Convert to tasks
+      const newTasks: DailyTask[] = plan.map((text: string, index: number) => ({
+        id: `task-${Date.now()}-${index}`,
+        text,
+        completed: false,
+        createdAt: new Date(),
+      }));
+
+      setTodayTasks(newTasks);
+
+      // Save immediately
+      const today = getTodayDate();
+      await updateDayProgress(today, newTasks, mood, dailyPlans);
+
+      setShowCheckin(false);
+
+      toast({
+        title: 'Success!',
+        description: `Your personalized plan is ready! ${data.cached ? '(cached)' : ''}`,
+      });
+    } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Error generating plan',
-        description: 'Could not generate a learning plan. Please try again later.',
+        title: 'Error',
+        description: error.message || 'Failed to generate plan',
       });
-      setIsDailyPlanOpen(false);
     } finally {
-      setIsPlanLoading(false);
+      setGeneratingPlan(false);
     }
   };
 
-  const handleTaskToggle = (taskId: number) => {
-    const newTasks = tasks.map((task) =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
+  // Toggle task completion
+  const toggleTask = async (taskId: string) => {
+    setTodayTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
     );
-    setTasks(newTasks);
-
-    const allCompleted = newTasks.every((t) => t.completed);
-    if (allCompleted) {
-      const today = startOfDay(new Date());
-      if (!completedDays.some((d) => d.getTime() === today.getTime())) {
-        setCompletedDays((prev) => [...prev, today]);
-      }
-    }
   };
 
-  const allTasksCompleted = tasks.length > 0 && tasks.every((t) => t.completed);
-  const hasCheckedInToday =
-    lastCheckinDate?.getTime() === startOfDay(new Date()).getTime();
+  // Get completed tasks only
+  const completedTasks = todayTasks.filter(t => t.completed);
 
-  const handleDailyButtonClick = () => {
-    if (hasCheckedInToday) {
-      setIsDailyPlanOpen(true);
-    } else {
-      setIsCheckinOpen(true);
-    }
-  };
+  // Calculate progress percentage
+  const progressPercentage = todayTasks.length > 0
+    ? Math.round((completedTasks.length / todayTasks.length) * 100)
+    : 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your progress...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen">
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center gap-2">
-              <Logo className="size-8 text-primary" />
-              <span className="text-lg font-semibold font-headline">
-                SkillSculptor
-              </span>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <a href="#dashboard">
-                  <SidebarMenuButton isActive>
-                    <BarChart3 />
-                    Dashboard
-                  </SidebarMenuButton>
-                </a>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <a href="#progress">
-                  <SidebarMenuButton>
-                    <BookOpen />
-                    My Progress
-                  </SidebarMenuButton>
-                </a>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <a href="#calendar">
-                  <SidebarMenuButton>
-                    <CalendarDays />
-                    Calendar
-                  </SidebarMenuButton>
-                </a>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarContent>
-          <SidebarSeparator />
-          <SidebarFooter>
-            <div className="flex items-center gap-3 p-2">
-              <Avatar>
-                <AvatarImage
-                  src={`https://i.pravatar.cc/150?u=${userData.gender}`}
-                  alt="User"
-                />
-                <AvatarFallback>{userData.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">
-                  Welcome, {userData.name}!
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Age: {userData.age}
-                </span>
-              </div>
-            </div>
-          </SidebarFooter>
-        </Sidebar>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-headline font-bold text-foreground">Dashboard</h1>
+            <Button
+              variant="default"
+              className="mt-2"
+              onClick={() => setShowCheckin(true)}
+            >
+              <Target className="mr-2 h-4 w-4" />
+              Today&apos;s Goal
+            </Button>
+          </div>
+        </div>
 
-        <SidebarInset className="bg-background">
-          <header className="flex items-center justify-between p-4 border-b">
-            <SidebarTrigger className="md:hidden" />
-            <h1 id="dashboard" className="text-2xl font-bold font-headline">
-              Dashboard
-            </h1>
-            <div className="flex items-center gap-2">
-              <Button onClick={handleDailyButtonClick}>
-                {hasCheckedInToday ? (
-                  <Target className="mr-2 size-4" />
-                ) : (
-                  <Sparkles className="mr-2 size-4" />
-                )}
-                {hasCheckedInToday ? "Today's Goal" : 'Daily Check-in'}
-              </Button>
-
-              <Dialog open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="font-headline">
-                      How are you today?
-                    </DialogTitle>
-                    <DialogDescription>
-                      Let&apos;s tailor a plan for your day.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleCheckinSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="mood">How are you feeling?</Label>
-                      <Textarea
-                        id="mood"
-                        name="mood"
-                        placeholder="e.g., Energized and ready to learn!"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="dailyPlans">
-                        What are your other plans for today?
-                      </Label>
-                      <Textarea
-                        id="dailyPlans"
-                        name="dailyPlans"
-                        placeholder="e.g., Morning jog, team meeting at 2 PM..."
-                        required
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isPlanLoading}
-                    >
-                      {isPlanLoading && (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                      )}
-                      Generate My Plan
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+        {/* Welcome Card */}
+        <Card className="p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-2xl font-headline font-semibold mb-2">
+                Welcome Back, {userData.name}!
+              </h2>
+              <p className="text-muted-foreground">
+                Ready to master{' '}
+                <span className="text-primary font-semibold">{userData.learningGoal}</span>?
+              </p>
             </div>
-          </header>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Day {stats?.totalDays || 0} / {userData.learningDuration}</p>
+              <Progress value={(((stats?.totalDays || 0) / userData.learningDuration) * 100)} className="mt-2 w-32" />
+            </div>
+          </div>
+        </Card>
 
-          <main className="p-4 md:p-6 lg:p-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
-            <Card className="lg:col-span-3 bg-card/80 backdrop-blur-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                  <CardTitle className="font-headline">
-                    Welcome Back, {userData.name}!
-                  </CardTitle>
-                  <CardDescription>
-                    Ready to master{' '}
-                    <span className="font-semibold text-primary">
-                      {userData.learningGoal}
-                    </span>
-                    ?
-                  </CardDescription>
-                </div>
-                {isPlanLoading && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="animate-spin size-5" />
-                    <span>Generating...</span>
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <Progress
-                    value={(completedDays.length / userData.learningDuration) * 100}
-                    className="h-3"
+        {/* Today's Tasks (Completed Only) */}
+        {completedTasks.length > 0 && (
+          <Card className="p-6">
+            <h3 className="text-xl font-headline font-semibold mb-4 flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Today&apos;s Completed Goals
+            </h3>
+            <div className="space-y-3">
+              {completedTasks.map((task) => (
+                <div key={task.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                  <Checkbox
+                    checked={task.completed}
+                    onCheckedChange={() => toggleTask(task.id)}
+                    className="mt-1"
                   />
-                  <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                    Day {completedDays.length} / {userData.learningDuration}
-                  </span>
+                  <p className={`flex-1 ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                    {task.text}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card id="progress" className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                  <BarChart3 /> Progress Overview
-                </CardTitle>
-                <CardDescription>
-                  Your task completion over the last weeks.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={progressData}>
-                    <XAxis
-                      dataKey="name"
-                      stroke="#888888"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="#888888"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Bar
-                      dataKey="tasks"
-                      fill="hsl(var(--primary))"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="font-headline flex items-center gap-2">
-                    <Target />
-                    {`Today's Goal`}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {hasCheckedInToday && tasks.length > 0 ? (
-                    tasks.slice(0, 2).map((task, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <CheckCircle2
-                          className={`mt-1 size-5 shrink-0 ${
-                            task.completed
-                              ? 'text-green-500'
-                              : 'text-muted-foreground'
-                          }`}
-                        />
-                        <div>
-                          <h4 className="font-semibold">{task.text}</h4>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-muted-foreground">
-                      <p>No plan generated for today.</p>
-                      <p>Click on &quot;Daily Check-in&quot; to get started!</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              ))}
             </div>
+          </Card>
+        )}
 
-            <Card id="calendar" className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                  <CalendarDays /> Learning Calendar
-                </CardTitle>
-                <CardDescription>
-                  Select your days off. Your plan will adapt. Completed days are
-                  marked in green.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                <Calendar
-                  mode="multiple"
-                  selected={[...daysOff, ...completedDays]}
-                  onSelect={(dates) => {
-                    if (dates) {
-                      // Filter out completed days (they can't be unselected)
-                      const newDaysOff = dates.filter(
-                      (date) => !completedDays.some((d) => d.getTime() === date.getTime())
-                      );
-                      setDaysOff(newDaysOff);
-                    }
+        {/* Progress Overview */}
+        <Card className="p-6">
+          <h3 className="text-xl font-headline font-semibold mb-2 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Progress Overview
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Your task completion over the last weeks.
+          </p>
+          {stats && stats.weeklyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stats.weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
                   }}
-                  disabled={(date) => {
-                      // Disable past dates and completed days
-                    const today = startOfDay(new Date());
-                    return date < today || completedDays.some((d) => d.getTime() === date.getTime());
-                  }}
-                  onDayClick={handleDayClick}
-                  className="rounded-md border"
-                  modifiers={{
-                    off: daysOff,
-                    completed: completedDays,
-                  }}
-                  modifiersClassNames={{
-                    completed: 'rdp-day_completed',
-                    off: 'rdp-day_off',
-                  }}
-                  modifiersStyles={{
-                    off: {
-                      backgroundColor: 'hsl(var(--destructive))',
-                      color: 'hsl(var(--destructive-foreground))',
-                    },
-                    completed: {
-                      color: 'hsl(var(--primary-foreground))',
-                      backgroundColor: 'hsl(140, 80%, 40%)',
-                    },
-                  }}
-                  components={{
-                    DayContent: (props: any) => {
-                      const isCompleted = completedDays.some(
-                        (d) => d.getTime() === props.date.getTime()
-                      );
-                      return (
-                        <div className="relative flex items-center justify-center h-full w-full">
-                          {props.date.getDate()}
-                          {isCompleted && (
-                            <Check className="absolute size-4 text-white" />
-                          )}
-                        </div>
-                      );
-                    },
-                  } as any}
                 />
-              </CardContent>
-            </Card>
-          </main>
-        </SidebarInset>
+                <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Start completing tasks to see your progress!</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Learning Calendar */}
+        <Card className="p-6">
+          <h3 className="text-xl font-headline font-semibold mb-2 flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5 text-primary" />
+            Learning Calendar
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Select your days off. Your plan will adapt. Completed days are marked in green.
+          </p>
+          <div className="flex justify-center">
+            <Calendar
+              mode="multiple"
+              selected={[]}
+              className="rounded-md border"
+            />
+          </div>
+        </Card>
       </div>
 
-      <Dialog open={isDailyPlanOpen} onOpenChange={setIsDailyPlanOpen}>
-        <DialogContent className="max-w-2xl">
+      {/* Daily Check-in Dialog */}
+      <Dialog open={showCheckin} onOpenChange={setShowCheckin}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-headline flex items-center gap-2">
-              <Sparkles className="text-primary" /> Your Plan for Today
-            </DialogTitle>
+            <DialogTitle>How are you today?</DialogTitle>
             <DialogDescription>
-              Here is a personalized learning plan. Check off tasks as you complete
-              them.
+              Let&apos;s tailor a plan for your day.
             </DialogDescription>
           </DialogHeader>
-
-          {isPlanLoading ? (
-            <LoadingOverlay message="Generating your plan..." />
-          ) : (
-            <>
-              <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto">
-                {tasks.map((task) => (
-                  <div key={task.id} className="flex items-center space-x-3">
-                    <Checkbox
-                      id={`task-${task.id}`}
-                      checked={task.completed}
-                      onCheckedChange={() => handleTaskToggle(task.id)}
-                    />
-                    <label
-                      htmlFor={`task-${task.id}`}
-                      className={`text-sm font-medium leading-none ${
-                        task.completed
-                          ? 'line-through text-muted-foreground'
-                          : ''
-                      }`}
-                    >
-                      {task.text}
-                    </label>
-                  </div>
-                ))}
-              </div>
-
-{tasks && tasks.length > 0 && (
-  <div className="mt-6 pt-4 border-t border-border">
-    <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-      </svg>
-      Helpful Resources
-    </h4>
-    <div className="space-y-2">
-      <a 
-        href={`https://www.google.com/search?q=${encodeURIComponent(userData.learningGoal + ' tutorial')}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-        Search tutorials on Google
-      </a>
-      
-      <a 
-        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(userData.learningGoal + ' tutorial')}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-        Watch video tutorials on YouTube
-      </a>
-      
-      <a 
-        href={`https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(userData.learningGoal)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-        Read documentation (MDN)
-      </a>
-
-      <a 
-        href={`https://stackoverflow.com/search?q=${encodeURIComponent(userData.learningGoal)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-        </svg>
-        Find solutions on Stack Overflow
-      </a>
-    </div>
-  </div>
-)}
-
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => setIsDailyPlanOpen(false)}
-                >
-                  Close
-                </Button>
-                {allTasksCompleted ? (
-                  <Button onClick={() => setIsDailyPlanOpen(false)}>
-                    <CheckCircle2 className="mr-2 size-4" />
-                    You did it!
-                  </Button>
-                ) : (
-                  <Button onClick={() => setIsDailyPlanOpen(false)}>
-                    Done for Today
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="mood">How are you feeling?</Label>
+              <Input
+                id="mood"
+                placeholder="e.g., Energized and ready to learn!"
+                value={mood}
+                onChange={(e) => setMood(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="plans">What are your other plans for today?</Label>
+              <Textarea
+                id="plans"
+                placeholder="e.g., Morning jog, team meeting at 2 PM..."
+                value={dailyPlans}
+                onChange={(e) => setDailyPlans(e.target.value)}
+                className="mt-1 min-h-[100px]"
+              />
+            </div>
+            <Button
+              onClick={handleGeneratePlan}
+              disabled={generatingPlan}
+              className="w-full"
+            >
+              {generatingPlan ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating...
+                </>
+              ) : (
+                'Generate My Plan'
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
-    </SidebarProvider>
+    </div>
   );
 }
