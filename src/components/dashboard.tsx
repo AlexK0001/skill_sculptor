@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Target, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LearningCalendar } from '@/components/LearningCalendar';
 import { useProgress } from '@/hooks/use-progress';
 import { useToast } from '@/hooks/use-toast';
 import type { OnboardingData } from '@/lib/types';
@@ -48,12 +49,16 @@ export default function Dashboard({ userData }: DashboardProps) {
     
     if (dayProgress && dayProgress.tasks) {
       setTodayTasks(dayProgress.tasks);
+      // If tasks exist, also restore mood and plans
+      if (dayProgress.mood) setMood(dayProgress.mood);
+      if (dayProgress.dailyPlans) setDailyPlans(dayProgress.dailyPlans);
     }
     
-    // Show check-in only if not done today
-    if (!hasTodayCheckin() && !loading) {
-      setShowCheckin(true);
-    }
+    // Determine if there are saved tasks for today from the fetched dayProgress
+    const hasTasks = !!(dayProgress && dayProgress.tasks && dayProgress.tasks.length > 0);
+    // Show check-in only if not done today AND no tasks exist (based on fetched progress, not state)
+    const shouldShowCheckin = !hasTodayCheckin() && !loading && !hasTasks;
+    setShowCheckin(shouldShowCheckin);
   }, [getDayProgress, getTodayDate, hasTodayCheckin, loading]);
 
   // Auto-save tasks when they change (debounced)
@@ -199,22 +204,28 @@ export default function Dashboard({ userData }: DashboardProps) {
           </div>
         </Card>
 
-        {/* Today's Tasks (Completed Only) */}
-        {completedTasks.length > 0 && (
+        {/* Today's Tasks (All tasks with checkboxes) */}
+        {todayTasks.length > 0 && (
           <Card className="p-6">
-            <h3 className="text-xl font-headline font-semibold mb-4 flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              Today&apos;s Completed Goals
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-headline font-semibold flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                Today&apos;s Goals
+              </h3>
+              <div className="text-sm text-muted-foreground">
+                {completedTasks.length} / {todayTasks.length} completed
+              </div>
+            </div>
+            <Progress value={progressPercentage} className="mb-4" />
             <div className="space-y-3">
-              {completedTasks.map((task) => (
-                <div key={task.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+              {todayTasks.map((task) => (
+                <div key={task.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
                   <Checkbox
                     checked={task.completed}
                     onCheckedChange={() => toggleTask(task.id)}
                     className="mt-1"
                   />
-                  <p className={`flex-1 ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                  <p className={`flex-1 ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                     {task.text}
                   </p>
                 </div>
@@ -262,15 +273,9 @@ export default function Dashboard({ userData }: DashboardProps) {
             Learning Calendar
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Select your days off. Your plan will adapt. Completed days are marked in green.
+            Track your learning journey. Completed days show in green, partial in yellow, missed in red.
           </p>
-          <div className="flex justify-center">
-            <Calendar
-              mode="multiple"
-              selected={[]}
-              className="rounded-md border"
-            />
-          </div>
+          <LearningCalendar />
         </Card>
       </div>
 

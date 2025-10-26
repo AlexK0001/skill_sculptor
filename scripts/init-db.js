@@ -47,6 +47,9 @@ async function initializeDatabase() {
     await db.collection('files').createIndex({ skillId: 1 });
     await db.collection('learning_plans').createIndex({ userId: 1 });
     await db.collection('learning_plans').createIndex({ createdAt: -1 });
+    await db.collection('user_progress').createIndex({ userId: 1 }, { unique: true });
+    await db.collection('user_progress').createIndex({ lastCheckinDate: -1 });
+    await db.collection('user_progress').createIndex({ updatedAt: -1 });
 
     console.log('Indexes created successfully');
 
