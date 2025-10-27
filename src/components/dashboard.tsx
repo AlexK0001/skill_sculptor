@@ -37,13 +37,17 @@ export default function Dashboard({ userData }: DashboardProps) {
 
   // States
   const [showCheckin, setShowCheckin] = useState(false);
+  const [showFullPlan, setShowFullPlan] = useState(false); // NEW: for full study plan
   const [mood, setMood] = useState('');
   const [dailyPlans, setDailyPlans] = useState('');
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [todayTasks, setTodayTasks] = useState<DailyTask[]>([]);
+  const [fullStudyPlan, setFullStudyPlan] = useState<string[]>([]); // NEW: full plan storage
 
   // Load today's tasks on mount
   useEffect(() => {
+    if (loading) return; // Don't run if still loading
+    
     const today = getTodayDate();
     const dayProgress = getDayProgress(today);
     
@@ -54,12 +58,70 @@ export default function Dashboard({ userData }: DashboardProps) {
       if (dayProgress.dailyPlans) setDailyPlans(dayProgress.dailyPlans);
     }
     
-    // Determine if there are saved tasks for today from the fetched dayProgress
-    const hasTasks = !!(dayProgress && dayProgress.tasks && dayProgress.tasks.length > 0);
-    // Show check-in only if not done today AND no tasks exist (based on fetched progress, not state)
-    const shouldShowCheckin = !hasTodayCheckin() && !loading && !hasTasks;
+    // Show check-in only if not done today AND no tasks exist
+    const shouldShowCheckin = !hasTodayCheckin() && todayTasks.length === 0;
     setShowCheckin(shouldShowCheckin);
-  }, [getDayProgress, getTodayDate, hasTodayCheckin, loading]);
+  }, [loading]); // FIXED: Only depend on loading
+
+  // Separate effect to reload tasks when progress changes
+  useEffect(() => {
+    if (!progress || loading) return;
+    
+    const today = getTodayDate();
+    const dayProgress = getDayProgress(today);
+    
+    if (dayProgress && dayProgress.tasks && dayProgress.tasks.length > 0) {
+      setTodayTasks(dayProgress.tasks);
+      setShowCheckin(false); // Hide check-in if tasks exist
+    }
+  }, [progress]);
+
+  // Generate full study plan on first load (if not exists)
+  useEffect(() => {
+    const generateFullPlan = async () => {
+      // Check if full plan already exists in localStorage
+      const savedPlan = localStorage.getItem('fullStudyPlan');
+      if (savedPlan) {
+        setFullStudyPlan(JSON.parse(savedPlan));
+        return;
+      }
+
+      // Generate full plan based on learning duration
+      try {
+        const response = await fetch('/api/ai/full-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            learningGoal: userData.learningGoal,
+            learningDuration: userData.learningDuration,
+            age: userData.age,
+            gender: userData.gender,
+            strengths: userData.strengths,
+            weaknesses: userData.weaknesses,
+            preferences: userData.preferences,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const plan = data.plan?.fullPlan || [];
+          setFullStudyPlan(plan);
+          localStorage.setItem('fullStudyPlan', JSON.stringify(plan));
+        }
+      } catch (error) {
+        console.error('Failed to generate full plan:', error);
+        // Create fallback plan
+        const fallbackPlan = generateFallbackFullPlan(userData.learningGoal, userData.learningDuration);
+        setFullStudyPlan(fallbackPlan);
+        localStorage.setItem('fullStudyPlan', JSON.stringify(fallbackPlan));
+      }
+    };
+
+    if (userData && !loading) {
+      generateFullPlan();
+    }
+  }, [userData, loading]);
 
   // Auto-save tasks when they change (debounced)
   useEffect(() => {
@@ -103,10 +165,17 @@ export default function Dashboard({ userData }: DashboardProps) {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate plan');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate plan');
+      }
 
       const data = await response.json();
       const plan = data.plan?.learningPlan || [];
+
+      if (plan.length === 0) {
+        throw new Error('No tasks were generated');
+      }
 
       // Convert to tasks
       const newTasks: DailyTask[] = plan.map((text: string, index: number) => ({
@@ -120,15 +189,20 @@ export default function Dashboard({ userData }: DashboardProps) {
 
       // Save immediately
       const today = getTodayDate();
-      await updateDayProgress(today, newTasks, mood, dailyPlans);
+      const saved = await updateDayProgress(today, newTasks, mood, dailyPlans);
 
-      setShowCheckin(false);
+      if (saved) {
+        setShowCheckin(false); // Close dialog AFTER successful save
 
-      toast({
-        title: 'Success!',
-        description: `Your personalized plan is ready! ${data.cached ? '(cached)' : ''}`,
-      });
+        toast({
+          title: 'Success!',
+          description: `Your personalized plan is ready! ${data.cached ? '(cached)' : ''}`,
+        });
+      } else {
+        throw new Error('Failed to save progress');
+      }
     } catch (error: any) {
+      console.error('Generate plan error:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -146,6 +220,21 @@ export default function Dashboard({ userData }: DashboardProps) {
         task.id === taskId ? { ...task, completed: !task.completed } : task
       )
     );
+  };
+
+  // Generate fallback full plan
+  const generateFallbackFullPlan = (goal: string, duration: number): string[] => {
+    const weeksCount = Math.ceil(duration / 7);
+    const plan: string[] = [];
+    
+    for (let week = 1; week <= weeksCount; week++) {
+      plan.push(`Week ${week}: Introduction and Fundamentals of ${goal}`);
+      plan.push(`Week ${week}: Practice core concepts with hands-on exercises`);
+      plan.push(`Week ${week}: Build a small project to apply knowledge`);
+      plan.push(`Week ${week}: Review and consolidate learning`);
+    }
+    
+    return plan.slice(0, Math.ceil(duration / 2)); // Reasonable number of milestones
   };
 
   // Get completed tasks only
@@ -174,14 +263,22 @@ export default function Dashboard({ userData }: DashboardProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-headline font-bold text-foreground">Dashboard</h1>
-            <Button
-              variant="default"
-              className="mt-2"
-              onClick={() => setShowCheckin(true)}
-            >
-              <Target className="mr-2 h-4 w-4" />
-              Today&apos;s Goal
-            </Button>
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="default"
+                onClick={() => setShowCheckin(true)}
+              >
+                <Target className="mr-2 h-4 w-4" />
+                Today&apos;s Goal
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowFullPlan(true)}
+              >
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Study List
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -323,6 +420,35 @@ export default function Dashboard({ userData }: DashboardProps) {
                 'Generate My Plan'
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Study Plan Dialog */}
+      <Dialog open={showFullPlan} onOpenChange={setShowFullPlan}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Your Complete Study Plan</DialogTitle>
+            <DialogDescription>
+              {userData.learningDuration}-day roadmap to master {userData.learningGoal}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {fullStudyPlan.length > 0 ? (
+              fullStudyPlan.map((item, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
+                    {index + 1}
+                  </div>
+                  <p className="flex-1 text-foreground">{item}</p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p>Generating your personalized study plan...</p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
