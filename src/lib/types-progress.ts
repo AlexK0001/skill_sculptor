@@ -21,7 +21,7 @@ export interface DayProgress {
 export interface UserProgress {
   _id?: ObjectId;
   userId: ObjectId;
-  days: DayProgress[];
+  days: Record<string, DayProgress>;
   lastCheckinDate: string; // YYYY-MM-DD
   totalCompletedDays: number;
   currentStreak: number;

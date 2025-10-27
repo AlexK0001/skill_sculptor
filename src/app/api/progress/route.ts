@@ -40,7 +40,7 @@ export const GET = withRequestValidation(withErrorHandler(async (request: NextRe
   if (!userProgress) {
     const newProgress: Omit<UserProgress, '_id'> = {
       userId: new ObjectId(user.id),
-      days: [],
+      days: {}, // CHANGED: empty object instead of array
       lastCheckinDate: '',
       totalCompletedDays: 0,
       currentStreak: 0,
@@ -124,7 +124,7 @@ async function recalculateStreaks(collection: any, userId: ObjectId) {
   const progress = await collection.findOne({ userId });
   if (!progress || !progress.days) return;
   
-  const daysMap = progress.days as Record<string, DayProgress>;
+  const daysMap = progress.days; // Already Record<string, DayProgress>
   const sortedDates = Object.keys(daysMap).sort();
   
   let currentStreak = 0;

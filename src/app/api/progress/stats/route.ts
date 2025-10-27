@@ -37,7 +37,7 @@ export const GET = withRequestValidation(withErrorHandler(async (request: NextRe
     });
   }
   
-  const daysMap = userProgress.days as Record<string, DayProgress>;
+  const daysMap = userProgress.days;
   const days = Object.values(daysMap);
   
   // Calculate basic stats

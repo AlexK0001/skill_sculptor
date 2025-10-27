@@ -86,8 +86,7 @@ export function useProgress() {
   // Get progress for specific date
   const getDayProgress = useCallback((date: string): DayProgress | null => {
     if (!progress || !progress.days) return null;
-    const daysMap = progress.days as any;
-    return daysMap[date] || null;
+    return progress.days[date] || null;
   }, [progress]);
 
   // Get today's date (YYYY-MM-DD)
