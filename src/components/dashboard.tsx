@@ -1,384 +1,562 @@
-// src/components/dashboard.tsx - UPDATED with progress persistence
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
-import { Target, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { LearningCalendar } from '@/components/LearningCalendar';
-import { useProgress } from '@/hooks/use-progress';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  TrendingUp,
+  Target,
+  BookOpen,
+  Clock,
+  Award,
+  Sparkles,
+  X,
+  Loader2,
+} from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { OnboardingData } from '@/lib/types';
-import type { DailyTask } from '@/lib/types-progress';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface DashboardProps {
   userData: OnboardingData;
 }
 
-export default function Dashboard({ userData }: DashboardProps) {
-  const { toast } = useToast();
-  const {
-    progress,
-    stats,
-    loading,
-    updateDayProgress,
-    getDayProgress,
-    getTodayDate,
-    hasTodayCheckin,
-  } = useProgress();
+interface DayData {
+  date: string;
+  tasks: Task[];
+  mood?: string;
+  dailyPlans?: string;
+  completionRate: number;
+  status: 'completed' | 'partial' | 'missed' | 'pending';
+}
 
-  // States
+interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+interface ProgressData {
+  days: Record<string, DayData>;
+  lastCheckinDate: string;
+  totalCompletedDays: number;
+  currentStreak: number;
+  longestStreak: number;
+}
+
+interface ProgressStats {
+  totalDays: number;
+  completedDays: number;
+  partialDays: number;
+  missedDays: number;
+  currentStreak: number;
+  longestStreak: number;
+  averageCompletion: number;
+  weeklyData: { week: string; completed: number }[];
+}
+
+export default function Dashboard({ userData }: DashboardProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCheckin, setShowCheckin] = useState(false);
-  const [showFullPlan, setShowFullPlan] = useState(false); // NEW: for full study plan
+  const [showStudyPlan, setShowStudyPlan] = useState(false);
   const [mood, setMood] = useState('');
   const [dailyPlans, setDailyPlans] = useState('');
-  const [generatingPlan, setGeneratingPlan] = useState(false);
-  const [todayTasks, setTodayTasks] = useState<DailyTask[]>([]);
-  const [fullStudyPlan, setFullStudyPlan] = useState<string[]>([]); // NEW: full plan storage
+  const [generatedPlan, setGeneratedPlan] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progressData, setProgressData] = useState<ProgressData>({
+    days: {},
+    lastCheckinDate: '',
+    totalCompletedDays: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+  });
+  const [stats, setStats] = useState<ProgressStats | null>(null);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // Load today's tasks on mount
+  // Load progress data
   useEffect(() => {
-    if (loading) return; // Don't run if still loading
-    
-    const today = getTodayDate();
-    const dayProgress = getDayProgress(today);
-    
-    if (dayProgress && dayProgress.tasks) {
-      setTodayTasks(dayProgress.tasks);
-      // If tasks exist, also restore mood and plans
-      if (dayProgress.mood) setMood(dayProgress.mood);
-      if (dayProgress.dailyPlans) setDailyPlans(dayProgress.dailyPlans);
-    }
-    
-    // Show check-in only if not done today AND no tasks exist
-    const shouldShowCheckin = !hasTodayCheckin() && todayTasks.length === 0;
-    setShowCheckin(shouldShowCheckin);
-  }, [loading]); // FIXED: Only depend on loading
+    loadProgressData();
+    loadStatsData();
+  }, []);
 
-  // Separate effect to reload tasks when progress changes
-  useEffect(() => {
-    if (!progress || loading) return;
-    
-    const today = getTodayDate();
-    const dayProgress = getDayProgress(today);
-    
-    if (dayProgress && dayProgress.tasks && dayProgress.tasks.length > 0) {
-      setTodayTasks(dayProgress.tasks);
-      setShowCheckin(false); // Hide check-in if tasks exist
-    }
-  }, [progress]);
+  const loadProgressData = async () => {
+    try {
+      setIsLoadingProgress(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-  // Generate full study plan on first load (if not exists)
-  useEffect(() => {
-    const generateFullPlan = async () => {
-      // Check if full plan already exists in localStorage
-      const savedPlan = localStorage.getItem('fullStudyPlan');
-      if (savedPlan) {
-        setFullStudyPlan(JSON.parse(savedPlan));
-        return;
-      }
-
-      // Generate full plan based on learning duration
-      try {
-        const response = await fetch('/api/ai/full-plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            learningGoal: userData.learningGoal,
-            learningDuration: userData.learningDuration,
-            age: userData.age,
-            gender: userData.gender,
-            strengths: userData.strengths,
-            weaknesses: userData.weaknesses,
-            preferences: userData.preferences,
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const plan = data.plan?.fullPlan || [];
-          setFullStudyPlan(plan);
-          localStorage.setItem('fullStudyPlan', JSON.stringify(plan));
-        }
-      } catch (error) {
-        console.error('Failed to generate full plan:', error);
-        // Create fallback plan
-        const fallbackPlan = generateFallbackFullPlan(userData.learningGoal, userData.learningDuration);
-        setFullStudyPlan(fallbackPlan);
-        localStorage.setItem('fullStudyPlan', JSON.stringify(fallbackPlan));
-      }
-    };
-
-    if (userData && !loading) {
-      generateFullPlan();
-    }
-  }, [userData, loading]);
-
-  // Auto-save tasks when they change (debounced)
-  useEffect(() => {
-    if (todayTasks.length === 0) return;
-    
-    const timeout = setTimeout(async () => {
-      const today = getTodayDate();
-      await updateDayProgress(today, todayTasks, mood, dailyPlans);
-    }, 1000); // Save after 1 second of inactivity
-    
-    return () => clearTimeout(timeout);
-  }, [todayTasks, mood, dailyPlans, getTodayDate, updateDayProgress]);
-
-  // Generate daily plan
-  const handleGeneratePlan = async () => {
-    if (!mood.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please tell us how you&apos;re feeling',
+      const response = await fetch('/api/progress', {
+        headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        setProgressData(data.progress || {
+          days: {},
+          lastCheckinDate: '',
+          totalCompletedDays: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading progress:', error);
+    } finally {
+      setIsLoadingProgress(false);
+    }
+  };
+
+  const loadStatsData = async () => {
+    try {
+      setIsLoadingStats(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/progress/stats', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  const handleGeneratePlan = async () => {
+    if (!mood || !dailyPlans) {
+      alert('Please fill in both mood and daily plans');
       return;
     }
 
-    setGeneratingPlan(true);
-
+    setIsGenerating(true);
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      // FIXED: Use correct endpoint /api/ai/daily-plan
       const response = await fetch('/api/ai/daily-plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           mood,
-          dailyPlans: dailyPlans || 'Regular day',
+          dailyPlans,
           learningGoal: userData.learningGoal,
           age: userData.age,
           gender: userData.gender,
+          preferences: userData.preferences,
           strengths: userData.strengths,
           weaknesses: userData.weaknesses,
-          preferences: userData.preferences,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate plan');
+        throw new Error('Failed to generate plan');
       }
 
       const data = await response.json();
-      const plan = data.plan?.learningPlan || [];
-
-      if (plan.length === 0) {
+      
+      // Handle both AI and fallback responses
+      const plan = data.plan?.learningPlan || data.learningPlan || [];
+      
+      if (!Array.isArray(plan) || plan.length === 0) {
         throw new Error('No tasks were generated');
       }
 
-      // Convert to tasks
-      const newTasks: DailyTask[] = plan.map((text: string, index: number) => ({
-        id: `task-${Date.now()}-${index}`,
-        text,
+      setGeneratedPlan(plan);
+
+      // Save to progress with tasks
+      const dateStr = format(new Date(), 'yyyy-MM-dd');
+      const tasks: Task[] = plan.map((task, index) => ({
+        id: `task-${index}`,
+        text: task,
         completed: false,
-        createdAt: new Date(),
       }));
 
-      setTodayTasks(newTasks);
-
-      // Save immediately
-      const today = getTodayDate();
-      const saved = await updateDayProgress(today, newTasks, mood, dailyPlans);
-
-      if (saved) {
-        setShowCheckin(false); // Close dialog AFTER successful save
-
-        toast({
-          title: 'Success!',
-          description: `Your personalized plan is ready! ${data.cached ? '(cached)' : ''}`,
-        });
-      } else {
-        throw new Error('Failed to save progress');
-      }
-    } catch (error: any) {
+      await saveProgress(dateStr, tasks, mood, dailyPlans);
+      await loadProgressData();
+      
+    } catch (error) {
       console.error('Generate plan error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to generate plan',
-      });
+      alert('Failed to generate plan. Please try again.');
     } finally {
-      setGeneratingPlan(false);
+      setIsGenerating(false);
     }
   };
 
-  // Toggle task completion
-  const toggleTask = async (taskId: string) => {
-    setTodayTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
-    );
-  };
+  const saveProgress = async (date: string, tasks: Task[], mood?: string, dailyPlans?: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-  // Generate fallback full plan
-  const generateFallbackFullPlan = (goal: string, duration: number): string[] => {
-    const weeksCount = Math.ceil(duration / 7);
-    const plan: string[] = [];
-    
-    for (let week = 1; week <= weeksCount; week++) {
-      plan.push(`Week ${week}: Introduction and Fundamentals of ${goal}`);
-      plan.push(`Week ${week}: Practice core concepts with hands-on exercises`);
-      plan.push(`Week ${week}: Build a small project to apply knowledge`);
-      plan.push(`Week ${week}: Review and consolidate learning`);
+      await fetch('/api/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date,
+          tasks,
+          mood,
+          dailyPlans,
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving progress:', error);
     }
-    
-    return plan.slice(0, Math.ceil(duration / 2)); // Reasonable number of milestones
   };
 
-  // Get completed tasks only
-  const completedTasks = todayTasks.filter(t => t.completed);
+  const handleTaskToggle = async (taskId: string) => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const dayData = progressData.days[dateStr];
+    
+    if (!dayData) return;
 
-  // Calculate progress percentage
-  const progressPercentage = todayTasks.length > 0
-    ? Math.round((completedTasks.length / todayTasks.length) * 100)
-    : 0;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your progress...</p>
-        </div>
-      </div>
+    const updatedTasks = dayData.tasks.map(task =>
+      task.id === taskId ? { ...task, completed: !task.completed } : task
     );
-  }
+
+    await saveProgress(dateStr, updatedTasks, dayData.mood, dayData.dailyPlans);
+    await loadProgressData();
+    await loadStatsData();
+  };
+
+  const getTodayData = (): DayData | null => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return progressData.days[today] || null;
+  };
+
+  const getSelectedDayData = (): DayData | null => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return progressData.days[dateStr] || null;
+  };
+
+  const modifiers = {
+    completed: Object.entries(progressData.days)
+      .filter(([_, day]) => day.status === 'completed')
+      .map(([date]) => parseISO(date)),
+    partial: Object.entries(progressData.days)
+      .filter(([_, day]) => day.status === 'partial')
+      .map(([date]) => parseISO(date)),
+    missed: Object.entries(progressData.days)
+      .filter(([_, day]) => day.status === 'missed')
+      .map(([date]) => parseISO(date)),
+  };
+
+  const modifiersClassNames = {
+    completed: 'rdp-day_completed',
+    partial: 'rdp-day_partial',
+    missed: 'rdp-day_off',
+  };
+
+  const todayData = getTodayData();
+  const selectedDayData = getSelectedDayData();
+  const completionRate = todayData?.completionRate || 0;
+
+  // Mock data for charts (replace with real data later)
+  const weeklyProgressData = stats?.weeklyData || [
+    { week: 'Week 1', completed: 0 },
+    { week: 'Week 2', completed: 0 },
+    { week: 'Week 3', completed: 0 },
+    { week: 'Week 4', completed: 0 },
+    { week: 'Week 5', completed: 0 },
+  ];
+
+  const skillsData = [
+    { skill: 'Focus', level: 7 },
+    { skill: 'Consistency', level: 6 },
+    { skill: 'Time Mgmt', level: 5 },
+    { skill: 'Motivation', level: 8 },
+  ];
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-headline font-bold text-foreground">Dashboard</h1>
-            <div className="flex gap-2 mt-2">
-              <Button
-                variant="default"
-                onClick={() => setShowCheckin(true)}
-              >
-                <Target className="mr-2 h-4 w-4" />
-                Today&apos;s Goal
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowFullPlan(true)}
-              >
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Study List
-              </Button>
-            </div>
+            <h1 className="text-4xl font-headline font-bold text-gray-900 dark:text-white">
+              Dashboard
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Welcome back, {userData.name}! Track your learning journey.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => setShowCheckin(true)}
+              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Daily Check-in
+            </Button>
+            <Button
+              onClick={() => setShowStudyPlan(true)}
+              variant="outline"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              Study Plan
+            </Button>
           </div>
         </div>
 
-        {/* Welcome Card */}
-        <Card className="p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-2xl font-headline font-semibold mb-2">
-                Welcome Back, {userData.name}!
-              </h2>
-              <p className="text-muted-foreground">
-                Ready to master{' '}
-                <span className="text-primary font-semibold">{userData.learningGoal}</span>?
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Day {stats?.totalDays || 0} / {userData.learningDuration}</p>
-              <Progress value={(((stats?.totalDays || 0) / userData.learningDuration) * 100)} className="mt-2 w-32" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Today's Tasks (All tasks with checkboxes) */}
-        {todayTasks.length > 0 && (
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-headline font-semibold flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Today&apos;s Goals
-              </h3>
-              <div className="text-sm text-muted-foreground">
-                {completedTasks.length} / {todayTasks.length} completed
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Current Streak
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {isLoadingProgress ? '...' : progressData.currentStreak}
+                </span>
+                <Award className="w-8 h-8 text-blue-500" />
               </div>
-            </div>
-            <Progress value={progressPercentage} className="mb-4" />
-            <div className="space-y-3">
-              {todayTasks.map((task) => (
-                <div key={task.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                  <Checkbox
-                    checked={task.completed}
-                    onCheckedChange={() => toggleTask(task.id)}
-                    className="mt-1"
-                  />
-                  <p className={`flex-1 ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                    {task.text}
-                  </p>
-                </div>
-              ))}
-            </div>
+              <p className="text-xs text-gray-500 mt-2">days in a row</p>
+            </CardContent>
           </Card>
-        )}
 
-        {/* Progress Overview */}
-        <Card className="p-6">
-          <h3 className="text-xl font-headline font-semibold mb-2 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Progress Overview
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Your task completion over the last weeks.
-          </p>
-          {stats && stats.weeklyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats.weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
+          <Card className="border-l-4 border-l-green-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Completion Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {completionRate}%
+                </span>
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
+              </div>
+              <Progress value={completionRate} className="mt-2" />
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Total Days
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {isLoadingStats ? '...' : stats?.totalDays || 0}
+                </span>
+                <CalendarIcon className="w-8 h-8 text-purple-500" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">of learning</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-orange-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Learning Goal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {userData.learningDuration}
+                </span>
+                <Target className="w-8 h-8 text-orange-500" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">days goal</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Calendar & Today's Tasks */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Calendar */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  Learning Calendar
+                </CardTitle>
+                <CardDescription>
+                  Track your daily progress and maintain your streak
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  className="rounded-md"
+                  modifiers={modifiers}
+                  modifiersClassNames={modifiersClassNames}
                 />
-                <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Start completing tasks to see your progress!</p>
-            </div>
-          )}
-        </Card>
+                <div className="mt-4 flex gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                    <span>Completed</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
+                    <span>Partial</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                    <span>Missed</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Learning Calendar */}
-        <Card className="p-6">
-          <h3 className="text-xl font-headline font-semibold mb-2 flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5 text-primary" />
-            Learning Calendar
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Track your learning journey. Completed days show in green, partial in yellow, missed in red.
-          </p>
-          <LearningCalendar />
-        </Card>
+            {/* Today's Tasks */}
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {isSameDay(selectedDate, new Date()) 
+                    ? "Today's Tasks" 
+                    : `Tasks for ${format(selectedDate, 'MMM d, yyyy')}`}
+                </CardTitle>
+                <CardDescription>
+                  {selectedDayData 
+                    ? `${selectedDayData.completionRate}% complete`
+                    : 'No tasks for this day'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {selectedDayData && selectedDayData.tasks.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedDayData.tasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Checkbox
+                          checked={task.completed}
+                          onCheckedChange={() => handleTaskToggle(task.id)}
+                          className="mt-1"
+                        />
+                        <span
+                          className={cn(
+                            "flex-1 text-sm",
+                            task.completed && "line-through text-gray-500"
+                          )}
+                        >
+                          {task.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No tasks for this day</p>
+                    {isSameDay(selectedDate, new Date()) && (
+                      <Button
+                        onClick={() => setShowCheckin(true)}
+                        variant="link"
+                        className="mt-2"
+                      >
+                        Create today&apos;s plan
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Progress Charts */}
+          <div className="space-y-6">
+            {/* Progress Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Progress Overview
+                </CardTitle>
+                <CardDescription>
+                  Your task completion over the last weeks
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingStats ? (
+                  <div className="flex justify-center items-center h-[200px]">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={weeklyProgressData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="week" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="completed" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Skills Progress */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Skills Development</CardTitle>
+                <CardDescription>
+                  Your skill levels across different areas
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {skillsData.map((skill) => (
+                  <div key={skill.skill}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{skill.skill}</span>
+                      <span className="text-sm text-gray-500">{skill.level}/10</span>
+                    </div>
+                    <Progress value={skill.level * 10} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
       {/* Daily Check-in Dialog */}
       <Dialog open={showCheckin} onOpenChange={setShowCheckin}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>How are you today?</DialogTitle>
             <DialogDescription>
@@ -390,9 +568,9 @@ export default function Dashboard({ userData }: DashboardProps) {
               <Label htmlFor="mood">How are you feeling?</Label>
               <Input
                 id="mood"
-                placeholder="e.g., Energized and ready to learn!"
                 value={mood}
                 onChange={(e) => setMood(e.target.value)}
+                placeholder="e.g., energetic, tired, motivated"
                 className="mt-1"
               />
             </div>
@@ -400,56 +578,98 @@ export default function Dashboard({ userData }: DashboardProps) {
               <Label htmlFor="plans">What are your other plans for today?</Label>
               <Textarea
                 id="plans"
-                placeholder="e.g., Morning jog, team meeting at 2 PM..."
                 value={dailyPlans}
                 onChange={(e) => setDailyPlans(e.target.value)}
-                className="mt-1 min-h-[100px]"
+                placeholder="e.g., meetings, gym, family time"
+                className="mt-1"
+                rows={3}
               />
             </div>
             <Button
               onClick={handleGeneratePlan}
-              disabled={generatingPlan}
-              className="w-full"
+              disabled={isGenerating || !mood || !dailyPlans}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
             >
-              {generatingPlan ? (
+              {isGenerating ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Generating...
                 </>
               ) : (
-                'Generate My Plan'
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate My Plan
+                </>
               )}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Full Study Plan Dialog */}
-      <Dialog open={showFullPlan} onOpenChange={setShowFullPlan}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* Study Plan Dialog */}
+      <Dialog open={showStudyPlan} onOpenChange={setShowStudyPlan}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Your Complete Study Plan</DialogTitle>
             <DialogDescription>
               {userData.learningDuration}-day roadmap to master {userData.learningGoal}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            {fullStudyPlan.length > 0 ? (
-              fullStudyPlan.map((item, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
-                    {index + 1}
-                  </div>
-                  <p className="flex-1 text-foreground">{item}</p>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>Generating your personalized study plan...</p>
+          
+          {isGenerating ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+              <p className="text-gray-600">Generating your personalized study plan...</p>
+            </div>
+          ) : generatedPlan.length > 0 ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">Today&apos;s Learning Plan</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Based on your mood: <Badge variant="secondary">{mood}</Badge>
+                </p>
               </div>
-            )}
-          </div>
+              
+              <div className="space-y-3">
+                {generatedPlan.map((task, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-semibold">
+                      {index + 1}
+                    </div>
+                    <p className="flex-1 text-sm">{task}</p>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                onClick={() => {
+                  setShowStudyPlan(false);
+                  setShowCheckin(false);
+                }}
+                className="w-full"
+              >
+                Start Learning
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Complete your daily check-in to see your personalized study plan
+              </p>
+              <Button
+                onClick={() => {
+                  setShowStudyPlan(false);
+                  setShowCheckin(true);
+                }}
+              >
+                Do Daily Check-in
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
