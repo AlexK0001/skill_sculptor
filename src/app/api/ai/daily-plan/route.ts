@@ -1,6 +1,9 @@
-// src/app/api/ai/daily-plan/route.ts - WITH FALLBACK SUPPORT
+// src/app/api/ai/daily-plan/route.ts - WITH COOKIE SUPPORT
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
+import { ObjectId } from 'mongodb';
+import { getUsersCollection } from '@/lib/mongodb';
 import { checkAIRateLimit, getRateLimitStatusAsync } from '@/lib/rate-limiter';
 import { withErrorHandler, APIError, ErrorCode } from '@/lib/error-handler';
 import { withRequestValidation, createSuccessResponse } from '@/lib/validation-utils';
@@ -8,13 +11,63 @@ import { DailyCheckinSchema } from '@/lib/validation';
 import { suggestLearningPlan, type SuggestLearningPlanOutput } from '@/ai/flows/suggest-learning-plan';
 import { getFromCache, saveToCache } from '@/lib/ai-cache';
 import { getFallbackPlan, isQuotaError } from '@/lib/ai-fallback-templates';
+import { JWT_SECRET } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Helper function to get token from cookies or headers
+async function getAuthToken(request: NextRequest): Promise<string | null> {
+  // Try Authorization header first
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+
+  // Try cookie (for Google OAuth)
+  const cookieStore = await cookies();
+  const tokenCookie = cookieStore.get('token');
+  if (tokenCookie?.value) {
+    return tokenCookie.value;
+  }
+
+  return null;
+}
+
+// Helper function to verify user from token
+async function getUserFromToken(token: string) {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const users = await getUsersCollection();
+    const user = await users.findOne({ _id: new ObjectId(decoded.userId) });
+    
+    if (!user) {
+      throw new APIError(ErrorCode.AUTHENTICATION_ERROR, 'User not found', 401);
+    }
+
+    return {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+    };
+  } catch (error) {
+    throw new APIError(ErrorCode.AUTHENTICATION_ERROR, 'Invalid or expired token', 401);
+  }
+}
+
 export const POST = withRequestValidation(withErrorHandler(async (request: NextRequest) => {
-  // Authenticate user
-  const user = await requireAuth()(request);
+  // Get and verify token
+  const token = await getAuthToken(request);
+  if (!token) {
+    throw new APIError(
+      ErrorCode.AUTHENTICATION_ERROR,
+      'Authentication required. Please log in.',
+      401
+    );
+  }
+
+  // Verify user
+  const user = await getUserFromToken(token);
 
   // Validate request body
   const body = await request.json();

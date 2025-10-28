@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-
+    
     const result = await learningPlansCollection.insertOne(learningPlan);
 
     return NextResponse.json({
