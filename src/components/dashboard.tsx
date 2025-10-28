@@ -101,11 +101,9 @@ export default function Dashboard({ userData }: DashboardProps) {
   const loadProgressData = async () => {
     try {
       setIsLoadingProgress(true);
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
+      // Token is in cookies (from Google OAuth), not localStorage
       const response = await fetch('/api/progress', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include', // Send cookies
       });
 
       if (response.ok) {
