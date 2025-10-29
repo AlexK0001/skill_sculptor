@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     // Set cookie with proper options
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60, // 7 days
