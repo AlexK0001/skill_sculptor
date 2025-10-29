@@ -1,4 +1,4 @@
-// src/app/api/auth/google/callback/route.ts - VERCEL COMPATIBLE
+// src/app/api/auth/google/callback/route.ts - FIXED WITH PROPER COOKIE
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { getUsersCollection } from "@/lib/mongodb";
@@ -96,22 +96,19 @@ export async function GET(request: NextRequest) {
     // Redirect to home page with token cookie
     const response = NextResponse.redirect(new URL('/', request.url));
     
-    // CRITICAL: Set cookie with Vercel-compatible options
+    // Set cookie with proper options
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: true, // ALWAYS true on Vercel (even in preview)
+      secure: true,
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60, // 7 days
-      domain: process.env.NODE_ENV === 'production' 
-        ? '.vercel.app' // Allow all subdomains on Vercel
-        : undefined
     });
 
     // Clear OAuth state cookie
     response.cookies.delete("oauth_state");
 
-    console.log('OAuth successful, token cookie set, redirecting to home');
+    console.log('OAuth successful, redirecting to home');
     
     return response;
   } catch (err) {
