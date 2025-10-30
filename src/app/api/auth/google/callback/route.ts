@@ -1,4 +1,4 @@
-// src/app/api/auth/google/callback/route.ts - FIXED WITH PROPER COOKIE
+// src/app/api/auth/google/callback/route.ts - FINAL FIX
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { getUsersCollection } from "@/lib/mongodb";
@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
     const state = url.searchParams.get("state");
     const cookieState = request.cookies.get("oauth_state")?.value;
 
-    // Validate OAuth state
     if (!code || !state || !cookieState || state !== cookieState) {
       console.error('OAuth state mismatch or missing code');
       return NextResponse.redirect(new URL('/login?error=oauth_state', request.url));
@@ -21,7 +20,6 @@ export async function GET(request: NextRequest) {
 
     const redirectBase = process.env.NEXT_PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
 
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -41,7 +39,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=token_exchange', request.url));
     }
 
-    // Get user profile
     const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       headers: { Authorization: `Bearer ${tokenJson.access_token}` },
     });
@@ -53,7 +50,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=email_not_verified', request.url));
     }
 
-    // Upsert user into DB
     const users = await getUsersCollection();
     const now = new Date();
     
@@ -82,7 +78,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=user_creation', request.url));
     }
 
-    // Create JWT token
     const token = jwt.sign(
       { 
         userId: userDoc._id.toString(),
@@ -93,22 +88,22 @@ export async function GET(request: NextRequest) {
       { expiresIn: "7d" }
     );
 
-    // Redirect to home page with token cookie
     const response = NextResponse.redirect(new URL('/', request.url));
     
-    // Set cookie with proper options
+    // CRITICAL FIX: Always secure=true on Vercel (even preview deploys use HTTPS)
+    const isProduction = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+    
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProduction, // true on Vercel
       sameSite: "lax",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 7 * 24 * 60 * 60,
     });
 
-    // Clear OAuth state cookie
     response.cookies.delete("oauth_state");
 
-    console.log('OAuth successful, redirecting to home');
+    console.log('[OAuth] Success! Token cookie set. Secure:', isProduction);
     
     return response;
   } catch (err) {

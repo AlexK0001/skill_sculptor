@@ -99,139 +99,129 @@ export default function Dashboard({ userData }: DashboardProps) {
   }, []);
 
   const loadProgressData = async () => {
-    try {
-      setIsLoadingProgress(true);
-      // Token is in cookies (from Google OAuth), not localStorage
-      const response = await fetch('/api/progress', {
-        credentials: 'include', // Send cookies
+  try {
+    setIsLoadingProgress(true);
+    // FIXED: credentials: 'include' for cookies
+    const response = await fetch('/api/progress', {
+      credentials: 'include',
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      setProgressData(data.progress || {
+        days: {},
+        lastCheckinDate: '',
+        totalCompletedDays: 0,
+        currentStreak: 0,
+        longestStreak: 0,
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProgressData(data.progress || {
-          days: {},
-          lastCheckinDate: '',
-          totalCompletedDays: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-        });
-      }
-    } catch (error) {
-      console.error('Error loading progress:', error);
-    } finally {
-      setIsLoadingProgress(false);
     }
-  };
+  } catch (error) {
+    console.error('Error loading progress:', error);
+  } finally {
+    setIsLoadingProgress(false);
+  }
+};
 
-  const loadStatsData = async () => {
-    try {
-      setIsLoadingStats(true);
-      const token = localStorage.getItem('token');
-      if (!token) return;
+const loadStatsData = async () => {
+  try {
+    setIsLoadingStats(true);
+    // FIXED: credentials: 'include' for cookies
+    const response = await fetch('/api/progress/stats', {
+      credentials: 'include',
+    });
 
-      const response = await fetch('/api/progress/stats', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    } finally {
-      setIsLoadingStats(false);
+    if (response.ok) {
+      const data = await response.json();
+      setStats(data.stats);
     }
-  };
+  } catch (error) {
+    console.error('Error loading stats:', error);
+  } finally {
+    setIsLoadingStats(false);
+  }
+};
 
   const handleGeneratePlan = async () => {
-    if (!mood || !dailyPlans) {
-      alert('Please fill in both mood and daily plans');
-      return;
+  if (!mood || !dailyPlans) {
+    alert('Please fill in both mood and daily plans');
+    return;
+  }
+
+  setIsGenerating(true);
+  try {
+    // FIXED: credentials: 'include' for cookies
+    const response = await fetch('/api/ai/daily-plan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Send cookies
+      body: JSON.stringify({
+        mood,
+        dailyPlans,
+        learningGoal: userData.learningGoal,
+        age: userData.age,
+        gender: userData.gender,
+        preferences: userData.preferences,
+        strengths: userData.strengths,
+        weaknesses: userData.weaknesses,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to generate plan');
     }
 
-    setIsGenerating(true);
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Not authenticated');
-      }
-
-      // FIXED: Use correct endpoint /api/ai/daily-plan
-      const response = await fetch('/api/ai/daily-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mood,
-          dailyPlans,
-          learningGoal: userData.learningGoal,
-          age: userData.age,
-          gender: userData.gender,
-          preferences: userData.preferences,
-          strengths: userData.strengths,
-          weaknesses: userData.weaknesses,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate plan');
-      }
-
-      const data = await response.json();
-      
-      // Handle both AI and fallback responses
-      const plan = data.plan?.learningPlan || data.learningPlan || [];
-      
-      if (!Array.isArray(plan) || plan.length === 0) {
-        throw new Error('No tasks were generated');
-      }
-
-      setGeneratedPlan(plan);
-
-      // Save to progress with tasks
-      const dateStr = format(new Date(), 'yyyy-MM-dd');
-      const tasks: Task[] = plan.map((task, index) => ({
-        id: `task-${index}`,
-        text: task,
-        completed: false,
-      }));
-
-      await saveProgress(dateStr, tasks, mood, dailyPlans);
-      await loadProgressData();
-      
-    } catch (error) {
-      console.error('Generate plan error:', error);
-      alert('Failed to generate plan. Please try again.');
-    } finally {
-      setIsGenerating(false);
+    const data = await response.json();
+    const plan = data.plan?.learningPlan || data.learningPlan || [];
+    
+    if (!Array.isArray(plan) || plan.length === 0) {
+      throw new Error('No tasks were generated');
     }
-  };
+
+    setGeneratedPlan(plan);
+
+    // Save to progress
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    const tasks: Task[] = plan.map((task, index) => ({
+      id: `task-${index}`,
+      text: task,
+      completed: false,
+    }));
+
+    await saveProgress(dateStr, tasks, mood, dailyPlans);
+    await loadProgressData();
+    
+  } catch (error) {
+    console.error('Generate plan error:', error);
+    alert('Failed to generate plan. Please try again.');
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   const saveProgress = async (date: string, tasks: Task[], mood?: string, dailyPlans?: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      await fetch('/api/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          date,
-          tasks,
-          mood,
-          dailyPlans,
-        }),
-      });
-    } catch (error) {
-      console.error('Error saving progress:', error);
-    }
-  };
+  try {
+    // FIXED: credentials: 'include' for cookies
+    await fetch('/api/progress', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        date,
+        tasks,
+        mood,
+        dailyPlans,
+      }),
+    });
+  } catch (error) {
+    console.error('Error saving progress:', error);
+  }
+};
 
   const handleTaskToggle = async (taskId: string) => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
