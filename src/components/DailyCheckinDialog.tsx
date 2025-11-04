@@ -96,10 +96,22 @@ export function DailyCheckinDialog({
         throw new Error(data.error || `Server error: ${response.status}`);
       }
 
-      // Extract plan
-      const plan = data.data?.plan?.learningPlan || data.plan?.learningPlan;
+      // Extract plan from nested response
+      let plan: string[] | undefined;
+      
+      // Try different response structures
+      if (data.data?.plan?.learningPlan) {
+        plan = data.data.plan.learningPlan;
+      } else if (data.plan?.learningPlan) {
+        plan = data.plan.learningPlan;
+      } else if (data.learningPlan) {
+        plan = data.learningPlan;
+      }
+
+      console.log('[DailyCheckin] Extracted plan:', plan);
 
       if (!plan || !Array.isArray(plan) || plan.length === 0) {
+        console.error('[DailyCheckin] Invalid plan structure:', data);
         throw new Error('No tasks were generated. Please try again.');
       }
 
