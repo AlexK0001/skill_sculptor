@@ -1,4 +1,4 @@
-// src/components/ProgressCalendar.tsx - FIXED VERSION
+// src/components/LearningCalendar.tsx - FIXED VERSION
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,16 +12,18 @@ interface DayProgress {
   status: 'completed' | 'partial' | 'missed' | 'pending';
   completionRate: number;
   tasks?: Array<{ text: string; completed: boolean }>;
+  mood?: string;
+  dailyPlans?: string;
 }
 
 interface UserProgress {
-  days: Record<string, DayProgress>; // Changed from array to object
+  days: Record<string, DayProgress>; // Object, not array!
   currentStreak: number;
   longestStreak: number;
   totalCompletedDays: number;
 }
 
-export default function ProgressCalendar() {
+export default function LearningCalendar() {
   const { token } = useAuth();
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
@@ -93,27 +95,13 @@ export default function ProgressCalendar() {
       .map(([dateStr]) => new Date(dateStr));
   };
 
-  // Custom day content renderer
-  const renderDay = (date: Date) => {
-    const status = getDayStatus(date);
-    const dayNum = date.getDate();
-
-    // Add custom classes based on status
-    let className = 'rdp-day_custom';
+  // Get partial days for DayPicker
+  const getPartialDays = (): Date[] => {
+    if (!progress?.days) return [];
     
-    if (status === 'completed') {
-      className += ' rdp-day_completed';
-    } else if (status === 'missed') {
-      className += ' rdp-day_off';
-    } else if (status === 'partial') {
-      className += ' rdp-day_partial';
-    }
-
-    return (
-      <div className={className}>
-        {dayNum}
-      </div>
-    );
+    return Object.entries(progress.days)
+      .filter(([_, day]) => day.status === 'partial')
+      .map(([dateStr]) => new Date(dateStr));
   };
 
   // Handle day click
@@ -153,7 +141,7 @@ export default function ProgressCalendar() {
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="text-center p-3 bg-primary/10 rounded-lg">
             <div className="text-2xl font-bold text-primary">
-              {progress.currentStreak}
+              {progress.currentStreak || 0}
             </div>
             <div className="text-xs text-muted-foreground">
               Current Streak
@@ -161,7 +149,7 @@ export default function ProgressCalendar() {
           </div>
           <div className="text-center p-3 bg-accent/10 rounded-lg">
             <div className="text-2xl font-bold text-accent-foreground">
-              {progress.longestStreak}
+              {progress.longestStreak || 0}
             </div>
             <div className="text-xs text-muted-foreground">
               Longest Streak
@@ -169,7 +157,7 @@ export default function ProgressCalendar() {
           </div>
           <div className="text-center p-3 bg-secondary/10 rounded-lg">
             <div className="text-2xl font-bold text-secondary-foreground">
-              {progress.totalCompletedDays}
+              {progress.totalCompletedDays || 0}
             </div>
             <div className="text-xs text-muted-foreground">
               Total Days
@@ -187,10 +175,12 @@ export default function ProgressCalendar() {
           modifiers={{
             completed: getCompletedDays(),
             missed: getMissedDays(),
+            partial: getPartialDays(),
           }}
           modifiersClassNames={{
             completed: 'rdp-day_completed',
             missed: 'rdp-day_off',
+            partial: 'rdp-day_partial',
             selected: 'rdp-day_selected',
             today: 'rdp-day_today',
           }}
@@ -238,6 +228,15 @@ export default function ProgressCalendar() {
                     {dayData.completionRate}%
                   </span>
                 </div>
+
+                {dayData.mood && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Mood:</span>
+                    <span className="text-sm font-medium">
+                      {dayData.mood}
+                    </span>
+                  </div>
+                )}
 
                 {dayData.tasks && dayData.tasks.length > 0 && (
                   <div className="mt-3">
