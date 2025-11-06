@@ -150,49 +150,43 @@
 .animate-spin { animation: spin 1s linear infinite; }
 
 /* Calendar container */
-
-.rdp {
-  --rdp-cell-size: 50px;
-  --rdp-accent-color: #3399FF; 
+.rdp-custom {
+  --rdp-cell-size: 48px;
+  --rdp-accent-color: #3399FF;
   --rdp-background-color: hsl(var(--accent));
   margin: 0;
   padding: 0;
   width: 100%;
 }
 
-/* Контейнер місяця */
-.rdp-month {
+/* Month container */
+.rdp-custom .rdp-month {
   width: 100%;
-  background: hsl(var(--card));
-  border-radius: 20px;
-  padding: 1.5rem;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
-/* Заголовок місяця */
-.rdp-caption {
+/* Caption (Month/Year header) */
+.rdp-custom .rdp-caption {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 0 2rem 0;
-  margin-bottom: 1rem;
-  border-bottom: none;
-  position: relative;
+  padding: 0 0 1.5rem 0;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.3);
 }
 
-.rdp-caption_label {
-  font-size: 1.5rem;
+.rdp-custom .rdp-caption_label {
+  font-size: 1.25rem;
   font-weight: 700;
   color: hsl(var(--foreground));
   font-family: var(--font-headline), 'Poppins', sans-serif;
-  text-align: center;
-  width: 100%;
 }
 
-/* Навігаційні стрілки */
-.rdp-nav {
+/* Navigation buttons */
+.rdp-custom .rdp-nav {
   position: absolute;
   width: 100%;
   display: flex;
@@ -200,9 +194,9 @@
   top: 0;
 }
 
-.rdp-nav_button {
-  width: 40px;
-  height: 40px;
+.rdp-custom .rdp-nav_button {
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -214,167 +208,191 @@
   color: hsl(var(--foreground));
 }
 
-.rdp-nav_button:hover {
+.rdp-custom .rdp-nav_button:hover {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
   transform: scale(1.1);
 }
 
-.rdp-nav_button_previous {
-  left: 0;
+.rdp-custom .rdp-nav_button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
-.rdp-nav_button_next {
-  right: 0;
+.rdp-custom .rdp-nav_button:disabled:hover {
+  background: hsl(var(--muted));
+  transform: none;
 }
 
-/* Таблиця */
-.rdp-table {
+/* Table */
+.rdp-custom .rdp-table {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 8px 8px;
+  border-spacing: 4px;
 }
 
-/* Рядок із назвами днів тижня */
-.rdp-head_row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  margin-bottom: 0.5rem;
-}
-
-.rdp-head_cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--rdp-cell-size);
-  font-size: 0.75rem;
+/* Weekday headers */
+.rdp-custom .rdp-head_cell {
+  font-size: 0.7rem;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  padding: 0.5rem 0;
+  text-align: center;
 }
 
-/* Тіло календаря */
-.rdp-tbody {
-  display: block;
+/* Day cells */
+.rdp-custom .rdp-cell {
+  text-align: center;
+  padding: 2px;
 }
 
-.rdp-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-/* Клітинки днів */
-.rdp-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Day buttons */
+.rdp-custom .rdp-day {
+  width: var(--rdp-cell-size);
   height: var(--rdp-cell-size);
-  width: 100%;
-}
-
-/* Кнопки днів */
-.rdp-day {
-  width: 100%;
-  height: 100%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%; 
-  font-size: 1rem;
+  border-radius: 50%;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-  border: none;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
   background: transparent;
   color: hsl(var(--foreground));
+  position: relative;
 }
 
-.rdp-day:hover:not(.rdp-day_selected):not(.rdp-day_disabled) {
+.rdp-custom .rdp-day:hover:not(.rdp-day_disabled):not(.rdp-day_completed):not(.rdp-day_off) {
   background: hsl(var(--muted));
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
-
-.rdp-day_selected {
-  background: #26D0CE !important; 
-  color: white !important;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(38, 208, 206, 0.4);
-}
-
-/* Сьогоднішній день - якщо не обраний */
-.rdp-day_today:not(.rdp-day_selected) {
+/* Today */
+.rdp-custom .rdp-day_today:not(.rdp-day_completed):not(.rdp-day_off) {
   background: hsl(var(--primary) / 0.1);
+  border-color: hsl(var(--primary));
   font-weight: 700;
   color: hsl(var(--primary));
-  border: 2px solid hsl(var(--primary));
 }
 
-/* Дні з іншого місяця */
-.rdp-day_outside {
+/* Selected day */
+.rdp-custom .rdp-day_selected:not(.rdp-day_completed):not(.rdp-day_off) {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+  font-weight: 700;
+}
+
+/* Completed days - GREEN */
+.rdp-custom .rdp-day_completed {
+  background: #22C55E !important;
+  color: white !important;
+  font-weight: 700;
+  border-color: #16A34A;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+}
+
+.rdp-custom .rdp-day_completed:hover {
+  background: #16A34A !important;
+  transform: scale(1.05);
+}
+
+/* Missed days - RED */
+.rdp-custom .rdp-day_off {
+  background: #EF4444 !important;
+  color: white !important;
+  font-weight: 700;
+  border-color: #DC2626;
+  opacity: 0.85;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.rdp-custom .rdp-day_off:hover {
+  background: #DC2626 !important;
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Partial completion - YELLOW */
+.rdp-custom .rdp-day_partial {
+  background: #EAB308 !important;
+  color: white !important;
+  font-weight: 700;
+  border-color: #CA8A04;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+}
+
+.rdp-custom .rdp-day_partial:hover {
+  background: #CA8A04 !important;
+  transform: scale(1.05);
+}
+
+/* Outside month days */
+.rdp-custom .rdp-day_outside {
   opacity: 0.3;
   color: hsl(var(--muted-foreground));
 }
 
-/* Неактивні дні */
-.rdp-day_disabled {
+/* Disabled days */
+.rdp-custom .rdp-day_disabled {
   opacity: 0.2;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
-.rdp-day_disabled:hover {
+.rdp-custom .rdp-day_disabled:hover {
   background: transparent;
   transform: none;
 }
 
-/* Завершені дні - зелений круг */
-.rdp-day_completed {
-  background: #22C55E !important;
-  color: white !important;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
-}
-
-.rdp-day_completed:hover {
-  background: #16A34A !important;
-  transform: scale(1.1);
-}
-
-/* Пропущені дні - червоний круг */
-.rdp-day_off {
-  background: #EF4444 !important;
-  color: white !important;
-  font-weight: 700;
-  opacity: 0.8;
-  text-decoration: line-through;
-}
-
-.rdp-day_off:hover {
-  background: #DC2626 !important;
-  opacity: 1;
-  transform: scale(1.1);
-}
-
 /* Responsive */
 @media (max-width: 640px) {
-  .rdp {
-    --rdp-cell-size: 44px;
+  .rdp-custom {
+    --rdp-cell-size: 40px;
   }
-  
-  .rdp-caption_label {
-    font-size: 1.25rem;
+
+  .rdp-custom .rdp-caption_label {
+    font-size: 1.1rem;
   }
-  
-  .rdp-day,
-  .rdp-head_cell {
-    font-size: 0.875rem;
+
+  .rdp-custom .rdp-day {
+    font-size: 0.85rem;
+  }
+
+  .rdp-custom .rdp-head_cell {
+    font-size: 0.65rem;
   }
 }
 
 /* Responsive text scaling */
 @media (max-width: 640px) { html { font-size: 14px; } }
 @media (min-width: 1024px) { html { font-size: 16px; } }
+
+/* Focus styles for accessibility */
+.rdp-custom .rdp-day:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Animation for status changes */
+@keyframes status-change {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.rdp-custom .rdp-day_completed,
+.rdp-custom .rdp-day_off,
+.rdp-custom .rdp-day_partial {
+  animation: status-change 0.3s ease-out;
+}
