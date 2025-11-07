@@ -1,4 +1,4 @@
-// src/app/login/page.tsx - SUSPENSE FIXED
+// src/app/login/page.tsx - FIXED (No aggressive redirect)
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
-// Separate component that uses useSearchParams
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,6 +16,7 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   // Handle OAuth errors from URL
   useEffect(() => {
@@ -33,13 +33,14 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (but only once!)
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (!authLoading && isAuthenticated && !hasRedirected) {
       console.log('[Login] Already authenticated, redirecting...');
+      setHasRedirected(true);
       router.push('/');
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, hasRedirected, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +94,17 @@ function LoginContent() {
     window.location.href = '/api/auth/google';
   };
 
+  // Show loading only during initial auth check
   if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render form if redirecting
+  if (isAuthenticated && hasRedirected) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -230,7 +241,6 @@ function LoginContent() {
   );
 }
 
-// Main component with Suspense boundary
 export default function LoginPage() {
   return (
     <Suspense fallback={
