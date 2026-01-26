@@ -1,123 +1,78 @@
-// src/app/api/skills/route.ts - SECURED VERSION
-import { NextRequest, NextResponse } from 'next/server';
-import { ObjectId } from 'mongodb';
+// src/app/api/skills/route.ts
+import { NextRequest } from 'next/server';
 import { getSkillsCollection } from '@/lib/mongodb';
-import { skillDocumentToSkill, type CreateSkillRequest, type SkillDocument } from '@/lib/types';
+import { skillDocumentToSkill } from '@/lib/types';
 import { requireAuth } from '@/lib/auth';
 import { withErrorHandler, APIError, ErrorCode } from '@/lib/error-handler';
 import { withRequestValidation, createSuccessResponse, sanitizeString } from '@/lib/validation-utils';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 
-// Validation schema for creating skills
+// Схема валідації для створення нової навички
 const CreateSkillSchema = z.object({
-  name: z.string().min(1).max(100).transform(s => sanitizeString(s) || ''),
-  description: z.string().max(500).optional().transform(s => s ? sanitizeString(s) : undefined),
-  category: z.string().max(50).optional().transform(s => s ? sanitizeString(s) : undefined),
-  progress: z.number().min(0).max(100).default(0)
+  name: z.string().min(1, "Назва обов'язкова").max(100).transform(s => sanitizeString(s)),
+  description: z.string().max(500).optional().default('').transform(s => sanitizeString(s)),
+  category: z.string().max(50).optional().default('General').transform(s => sanitizeString(s)),
+  tags: z.array(z.string()).optional().default([]),
 });
 
-// Calculate skill level based on progress
-function calculateSkillLevel(progress: number): number {
-  if (progress >= 90) return 10;
-  if (progress >= 80) return 9;
-  if (progress >= 70) return 8;
-  if (progress >= 60) return 7;
-  if (progress >= 50) return 6;
-  if (progress >= 40) return 5;
-  if (progress >= 30) return 4;
-  if (progress >= 20) return 3;
-  if (progress >= 10) return 2;
-  return 1;
-}
+/**
+ * GET: Отримання всіх навичок користувача
+ */
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const user = await requireAuth(req);
+  const collection = await getSkillsCollection();
 
-// GET /api/skills - Get all skills for authenticated user
-export const GET = withRequestValidation(withErrorHandler(async (request: NextRequest) => {
-  const user = await requireAuth()(request);
-  
-  const skills = await getSkillsCollection();
-  const userSkills = await skills
-    .find({ userId: new ObjectId(user.id) })
-    .sort({ createdAt: -1 })
-    .limit(100) // Prevent large data dumps
-    .toArray() as SkillDocument[];
+  // Знаходимо документи, що належать користувачу
+  const skillsData = await collection
+    .find({ userId: user.id })
+    .sort({ updatedAt: -1 }) // Новіші навички зверху
+    .toArray();
 
-  const skillsResponse = userSkills.map(skillDocumentToSkill);
-  return createSuccessResponse({ skills: skillsResponse });
-}));
+  // ВАЖЛИВО: Перетворюємо MongoDB документи (з ObjectId/Date) 
+  // у чисті об'єкти (Skill) перед відправкою клієнту
+  const skills = skillsData.map(skillDocumentToSkill);
 
-// POST /api/skills - Create new skill
-export const POST = withRequestValidation(withErrorHandler(async (request: NextRequest) => {
-  const user = await requireAuth()(request);
-  
-  // Parse and validate request body
-  const body = await request.json();
-  const validatedData = CreateSkillSchema.parse(body);
+  return createSuccessResponse({ skills });
+});
 
-  // Additional business logic validation
-  if (!validatedData.name || validatedData.name.length === 0) {
-    throw new APIError(
-      ErrorCode.VALIDATION_ERROR,
-      'Skill name is required',
-      400
-    );
-  }
+/**
+ * POST: Створення нової навички
+ */
+export const POST = withErrorHandler(
+  withRequestValidation(CreateSkillSchema, async (req: NextRequest, data) => {
+    const user = await requireAuth(req);
+    const collection = await getSkillsCollection();
 
-  const skills = await getSkillsCollection();
-  
-  // Check if user already has a skill with this name (case-insensitive)
-  const existingSkill = await skills.findOne({
-    userId: new ObjectId(user.id),
-    name: { $regex: new RegExp(`^${validatedData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
-  });
-
-  if (existingSkill) {
-    throw new APIError(
-      ErrorCode.VALIDATION_ERROR,
-      'You already have a skill with this name',
-      409
-    );
-  }
-
-  // Check user's skill limit (prevent spam)
-  const userSkillCount = await skills.countDocuments({ userId: new ObjectId(user.id) });
-  if (userSkillCount >= 50) { // Reasonable limit
-    throw new APIError(
-      ErrorCode.VALIDATION_ERROR,
-      'You have reached the maximum number of skills (50)',
-      400
-    );
-  }
-
-  // Create new skill document
-  const newSkillDoc: Omit<SkillDocument, '_id'> = {
-    userId: new ObjectId(user.id),
-    name: validatedData.name,
-    description: validatedData.description || undefined,
-    category: validatedData.category || undefined,
-    level: calculateSkillLevel(validatedData.progress),
-    progress: validatedData.progress,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  try {
-    const result = await skills.insertOne(newSkillDoc);
-    const createdSkill = await skills.findOne({ _id: result.insertedId }) as SkillDocument;
+    const now = new Date();
     
-    return createSuccessResponse(
-      { skill: skillDocumentToSkill(createdSkill) },
-      201
-    );
-  } catch (dbError) {
-    console.error('Database error creating skill:', dbError);
-    throw new APIError(
-      ErrorCode.DATABASE_ERROR,
-      'Failed to create skill',
-      500
-    );
-  }
-}));
+    // Формуємо об'єкт для бази даних
+    const newSkillDoc = {
+      userId: user.id,
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      tags: data.tags,
+      level: 1,
+      xp: 0,
+      lastPracticed: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const result = await collection.insertOne(newSkillDoc as any);
+
+    if (!result.insertedId) {
+      throw new APIError(ErrorCode.INTERNAL_ERROR, 'Не вдалося створити навичку в базі даних');
+    }
+
+    // Повертаємо створений об'єкт клієнту через мапер
+    const createdSkill = skillDocumentToSkill({
+      ...newSkillDoc,
+      _id: result.insertedId,
+    });
+
+    return createSuccessResponse({ skill: createdSkill }, 201);
+  })
+);

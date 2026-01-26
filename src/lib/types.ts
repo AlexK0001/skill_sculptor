@@ -30,17 +30,17 @@ export interface UserDocument {
 }
 
 export interface SkillDocument {
-  _id?: ObjectId;
-  userId: ObjectId;
+  _id: ObjectId;
+  userId: string | ObjectId;
   name: string;
   description?: string;
+  level?: number;
+  xp?: number;
   category?: string;
-  level: number;
-  progress: number;
-  targetDate?: Date;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  tags?: string[];
+  lastPracticed?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface SkillGoalDocument {
@@ -98,14 +98,14 @@ export interface Skill {
   id: string;
   userId: string;
   name: string;
-  description?: string;
-  category?: string;
+  description: string;
   level: number;
-  progress: number;
-  targetDate?: Date;
-  isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
+  xp: number;
+  category: string;
+  tags: string[];
+  lastPracticed: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SkillGoal {
@@ -196,19 +196,26 @@ export function userDocumentToUser(doc: UserDocument): User {
   };
 }
 
-export function skillDocumentToSkill(doc: SkillDocument): Skill {
+export function skillDocumentToSkill(doc: any): Skill {
+  // Використовуємо doc: any, щоб уникнути конфліктів типів MongoDB при мапінгу
   return {
-    id: doc._id!.toString(),
-    userId: doc.userId.toString(),
-    name: doc.name,
-    description: doc.description,
-    category: doc.category,
-    level: doc.level,
-    progress: doc.progress,
-    targetDate: doc.targetDate,
-    isActive: doc.isActive,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
+    id: doc._id?.toString() || '',
+    userId: doc.userId?.toString() || '',
+    name: doc.name || 'Untitled Skill',
+    description: doc.description || '',
+    level: doc.level ?? 0,
+    xp: doc.xp ?? 0,
+    category: doc.category || 'General',
+    tags: Array.isArray(doc.tags) ? doc.tags : [],
+    lastPracticed: doc.lastPracticed instanceof Date 
+      ? doc.lastPracticed.toISOString() 
+      : (typeof doc.lastPracticed === 'string' ? doc.lastPracticed : null),
+    createdAt: doc.createdAt instanceof Date 
+      ? doc.createdAt.toISOString() 
+      : new Date().toISOString(),
+    updatedAt: doc.updatedAt instanceof Date 
+      ? doc.updatedAt.toISOString() 
+      : new Date().toISOString(),
   };
 }
 
