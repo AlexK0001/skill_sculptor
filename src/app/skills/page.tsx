@@ -25,8 +25,6 @@ export default function SkillsPage() {
       
       const data = await response.json();
       
-      // ВАЖЛИВО: Наше API тепер повертає об'єкт { skills: [] }, 
-      // тому беремо дані саме з поля skills
       if (data && Array.isArray(data.skills)) {
         setSkills(data.skills);
       } else {
