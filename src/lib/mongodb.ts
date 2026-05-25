@@ -1,16 +1,15 @@
-// @ts-nocheck 
 import { MongoClient, Db, Collection } from 'mongodb';
 
 // Завдяки глобальній змінній ми уникаємо лімітів з'єднань
 // під час частих перезапусків Serverless функцій (наприклад, на Vercel).
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI as string; // <--- ДОДАНО as string
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'skill_sculptor';
 
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
 }
 
-// Клеш для збереження об'єкту підключення
+// Кеш для збереження об'єкту підключення
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
 

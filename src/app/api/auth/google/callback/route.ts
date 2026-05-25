@@ -74,14 +74,20 @@ export async function GET(request: NextRequest) {
       { upsert: true, returnDocument: "after" }
     );
 
-    const userDoc = result;
+    // 👇 ФІКС ТИПІЗАЦІЇ ТУТ
+    const userDoc = result as any; 
     
     if (!userDoc || !userDoc._id) {
       console.error("Failed to persist user in DB");
       return NextResponse.redirect(new URL('/login?error=user_creation', request.url));
     }
 
-    // Генеруємо ваш фірмовий JWT токен застосунку
+    // Зберігаємо змінні безпечно для TypeScript (знак оклику каже TS, що поле точно є)
+    const userId = userDoc._id!.toString();
+    const userEmail = userDoc!.email || profile.email;
+    const userName = userDoc!.name || profile.name;
+
+    // Генеруємо фірмовий JWT токен застосунку
     const token = jwt.sign(
       { userId: userDoc._id.toString(), email: userDoc.email, name: userDoc.name },
       process.env.JWT_SECRET || "fallback-secret",
@@ -90,14 +96,21 @@ export async function GET(request: NextRequest) {
     
     const isProduction = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
 
-    // ВАЖЛИВА ЗМІНА: Ми повертаємо HTML відповідь з інжектором локального сховища
-    // Це забезпечить, щоб ваш Frontend знаходив токен у `localStorage` після редиректу.
+    // ВАЖЛИВА ЗМІНА: Повертаємо HTML сторінку, яка безпечно запише токен і закриється
+    // Це забезпечить щоб ваш "No stored token found" зник на фронті.
     const htmlResponse = `
+      <!DOCTYPE html>
       <html>
         <body>
           <script>
             // Синхронізуємо токен у localStorage, який очікує ваш Frontend 
             localStorage.setItem('token', '${token}');
+            // Зберігаємо також дані про юзера
+            localStorage.setItem('user', JSON.stringify({ 
+              id: '${userDoc._id.toString()}',
+              name: '${userDoc.name ? userDoc.name.replace(/'/g, "\\'") : ''}',
+              email: '${userDoc.email}' 
+            }));
             // Безпечно перенаправляємо на головну сторінку
             window.location.href = '/';
           </script>
@@ -124,7 +137,6 @@ export async function GET(request: NextRequest) {
     return response;
 
   } catch (err: any) {
-    // Якщо тут падає, виводимо конкретну причину в консоль сервера (термінал)
     console.error("Google OAuth callback CRITICAL error:", err.message);
     return NextResponse.redirect(new URL('/login?error=server', request.url));
   }

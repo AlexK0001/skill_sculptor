@@ -2,29 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '@/lib/constants';
-// TODO: Перевірте чи вірний у вас шлях до функції suggestLearningPlan
+// Переконайся, що шлях імпорту правильний до потрібної функції
 import { suggestLearningPlan } from '@/ai/flows/suggest-learning-plan'; 
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Фоллбек плани, якщо AI не відповідає (зменшуємо залежність від 100% аптайму AI)
+// Фоллбек плани, якщо AI довго відповідає
 const FALLBACK_PLANS: Record<string, string[]> = {
   motivated: [
-    'Start with a 25-minute focused learning session',
-    'Take notes on key concepts you discover',
-    'Practice what you learned with a small project',
-    'Review and organize your notes'
+    'Почніть з 25-хвилинної сесії сфокусованого навчання (Pomodoro)',
+    'Зробіть конспект ключових моментів для запам\'ятовування',
+    'Застосуйте вивчене на практиці (напишіть код / вирішіть задачу)'
   ],
   tired: [
-    'Begin with light reading or watching tutorial videos',
-    'Take frequent 5-minute breaks',
-    'Focus on review rather than new material'
+    'Почніть з легкого читання або перегляду відео на тему',
+    'Робіть перерви кожні 15 хвилин',
+    'Сфокусуйтеся на повторенні вже пройденого матеріалу'
   ],
   default: [
-    'Review previous learning materials',
-    'Work on practical exercises',
-    'Reflect on your progress'
+    'Повторіть попередній матеріал',
+    'Виконайте практичні завдання',
+    'Проаналізуйте свій прогрес'
   ],
 };
 
@@ -43,10 +42,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Валідація токену та ідентифікація юзера
-    let decoded;
+    let decoded: any;
     try {
-      decoded = jwt.verify(token, JWT_SECRET!) as { userId: string, name?: string };
+      decoded = jwt.verify(token, JWT_SECRET!);
     } catch (err) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
@@ -58,13 +56,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Mood and daily plans are required' }, { status: 400 });
     }
 
-    let aiPlan;
+    let aiPlan: string[];
 
     try {
       console.log('[API] Запит до Genkit / Gemini...');
       
-      // Додаємо Timeout (через Promise.race). 
-      // Vercel може обірвати запит, якщо AI думає довше 10с. Тому ми вручну даємо йому 8с.
       const aiResponse = (await Promise.race([
         suggestLearningPlan({
           name: decoded.name || 'Student',
@@ -78,14 +74,14 @@ export async function POST(request: NextRequest) {
           dailyPlans
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), 8000))
-      ])) as any;
+      ])) as { learningPlan: string[] };
       
       aiPlan = aiResponse.learningPlan;
       console.log('[API] AI успішно згенерував план');
       
     } catch (err: unknown) {
       const aiError = err as Error;
-      console.error('[API] AI помилка або таймаут, використовуємо Fallback:', aiError.message);
+      console.error('[API] AI помилка або таймаут, fallback:', aiError.message);
       const normalizedMood = mood.toLowerCase().trim();
       aiPlan = FALLBACK_PLANS[normalizedMood] || FALLBACK_PLANS.default;
     }
@@ -101,10 +97,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-  } catch (error: any) {
-    console.error('[API] Критична помилка у daily-plan route:', error.message);
+  } catch (error: unknown) {
+    const apiError = error as Error;
+    console.error('[API] Критична помилка у daily-plan route:', apiError.message);
     return NextResponse.json(
-      { error: 'Failed to generate plan', details: error.message },
+      { error: 'Failed to generate plan', details: apiError.message },
       { status: 500 }
     );
   }
