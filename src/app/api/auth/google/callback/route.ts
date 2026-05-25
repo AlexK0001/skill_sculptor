@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=oauth_state', request.url));
     }
 
-    const redirectBase = process.env.NEXT_PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
+    const redirectBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: isProduction, // true on Vercel
+      secure: process.env.NODE_ENV === 'production', // true on Vercel
       sameSite: "lax",
       path: "/",
       maxAge: 7 * 24 * 60 * 60,

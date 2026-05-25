@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Google client id not configured" }, { status: 500 });
   }
 
-  const redirectBase = process.env.NEXT_PUBLIC_APP_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}` || "http://localhost:3000";
+  const redirectBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
   const redirectUri = `${redirectBase}/api/auth/google/callback`;
 
   const state = randomBytes(16).toString("hex");
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   res.cookies.set("oauth_state", state, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: "isProduction" in process.env && process.env.isProduction === "true",
     path: "/",
     maxAge: 300,
   });

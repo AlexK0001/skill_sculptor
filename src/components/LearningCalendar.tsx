@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format } from 'date-fns';
 import 'react-day-picker/style.css';
+import "react-day-picker/dist/style.css";
 import { useAuth } from '@/lib/auth-context';
 
 interface DayProgress {
@@ -169,6 +170,11 @@ export default function LearningCalendar() {
       {/* Calendar */}
       <div className="flex justify-center">
         <DayPicker
+          classNames={{
+            today: "font-bold text-primary bg-primary/10",
+            selected: "bg-primary text-white font-bold",
+            root: "border rounded-xl p-4 shadow-sm bg-card text-card-foreground",
+          }}
           mode="single"
           selected={selectedDay}
           onSelect={handleDayClick}
@@ -177,13 +183,14 @@ export default function LearningCalendar() {
             missed: getMissedDays(),
             partial: getPartialDays(),
           }}
+          /*
           modifiersClassNames={{
             completed: 'rdp-day_completed',
             missed: 'rdp-day_off',
             partial: 'rdp-day_partial',
             selected: 'rdp-day_selected',
             today: 'rdp-day_today',
-          }}
+          }}*/
           className="rdp-custom"
           disabled={(date) => date > new Date()} // Disable future dates
         />

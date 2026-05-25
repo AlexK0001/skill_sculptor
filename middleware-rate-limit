@@ -1,0 +1,64 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * ПРОСТИЙ IN-MEMORY RATE LIMITER ДЛЯ VERCEL EDGE
+ * Важливо: In-memory Map може обнулятися під час холодних стартів (Cold Starts) Vercel.
+ * Якщо вам потрібен 100% точний Rate Limiter на продакшні, краще підключити Vercel KV (Redis) 
+ * (імпорт розширення @vercel/kv та використання redis.incr).
+ */
+
+const ipMap = new Map<string, { count: number; lastReset: number }>();
+const LIMIT = 50; // Толерантний ліміт (50 запитів)
+const WINDOW_MS = 60 * 1000; // за 1 хвилину
+
+export function middleware(request: NextRequest) {
+  // Ми застосовуємо ліміти ТІЛЬКИ до /api/ маршрутів
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    // Отримуємо IP клієнта
+    const ip = request.headers.get('x-forwarded-for') || 
+               request.headers.get('x-real-ip') || 
+               '127.0.0.1';
+               
+    const now = Date.now();
+    let ipData = ipMap.get(ip);
+    
+    // Скидаємо лічильник якщо вікно часу минуло
+    if (!ipData || now - ipData.lastReset > WINDOW_MS) {
+      ipData = { count: 1, lastReset: now };
+    } else {
+      ipData.count++;
+    }
+
+    ipMap.set(ip, ipData);
+
+    // Якщо досягнуто ліміту, повертаємо 429 Too Many Requests
+    if (ipData.count > LIMIT) {
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'Too Many Requests', 
+          message: 'Перевищено ліміт запитів до API. Спробуйте пізніше через 1 хвилину.' 
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Retry-After': '60'
+          } 
+        }
+      );
+    }
+  }
+
+  // --- ВАШІ ІСНУЮЧІ СЕКЬЮРИТІ ХЕДЕРИ ТУТ ---
+  const response = NextResponse.next();
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  // ... та інші хедери з існуючого middleware.ts
+  
+  return response;
+}
+
+export const config = {
+  matcher: [
+    '/api/:path*',
+  ],
+};

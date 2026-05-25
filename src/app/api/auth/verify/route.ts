@@ -33,6 +33,7 @@ export const GET = withRequestValidation(withErrorHandler(async (request: NextRe
 
   // Verify JWT token
   let payload: any;
+  if (!JWT_SECRET) throw new Error("CRITICAL: JWT_SECRET is not configured");
   try {
     payload = jwt.verify(token, JWT_SECRET!);
   } catch (error) {
