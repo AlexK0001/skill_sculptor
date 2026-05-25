@@ -1,0 +1,79 @@
+import { useState, useEffect, useCallback } from 'react';
+
+/**
+ * Хук для оптимізації записів прогресу на сервер (Debouncing).
+ * Замість того, щоб кожне натискання на чекбокс робило запит в базу (MongoDB), 
+ * ми чекаємо, поки користувач закінчить обирати чекбокси (наприклад, 2 секунди спокою), 
+ * і тільки тоді відправляємо 1 фінальний стан на сервер.
+ */
+export function useProgressSync(initialTasks: any[], date: string) {
+  const [tasks, setTasks] = useState(initialTasks || []);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Функція для локального оновлення стану UI (працює миттєво)
+  const toggleTask = (taskId: string) => {
+    setTasks(prev => prev.map(t => 
+      t.id === taskId ? { ...t, completed: !t.completed } : t
+    ));
+    setHasChanges(true); // Фіксуємо, що відбулась зміна
+  };
+
+  // Метод для синхронізації з бекендом
+  const syncToDatabase = useCallback(async (currentTasks: any[]) => {
+    setIsSyncing(true);
+    try {
+      await fetch('/api/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Додаємо токен (з контексту або localStorage)
+        },
+        body: JSON.stringify({ 
+          date, 
+          tasks: currentTasks,
+          // mood та інше можна отримати з глобального state
+        })
+      });
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to sync progress to database', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [date]);
+
+  // Ефект відкладеного збереження (Debounce)
+  useEffect(() => {
+    if (!hasChanges) return;
+
+    // Чекаємо 1.5 секунди після ОСТАННЬОГО кліку
+    const handler = setTimeout(() => {
+      syncToDatabase(tasks);
+    }, 1500);
+
+    // Якщо доки йде 1.5 секунди користувач ще раз клікнув, ми відміняємо старий таймер
+    return () => clearTimeout(handler);
+    
+  }, [tasks, hasChanges, syncToDatabase]);
+
+  // Захист перед виходом зі сторінки: якщо є незбережені зміни, 
+  // браузер може надіслати їх за допомогою Beacon API або просто попередити
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        // Запасний варіант синхронізації при закритті вкладки (SendBeacon - не чекає відповіді)
+        const payload = JSON.stringify({ date, tasks });
+        navigator.sendBeacon('/api/progress', new Blob([payload], { type: 'application/json' }));
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasChanges, tasks, date]);
+
+  return { 
+    tasks, 
+    toggleTask, 
+    isSyncing 
+  };
+}
