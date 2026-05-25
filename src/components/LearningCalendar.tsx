@@ -171,10 +171,23 @@ export default function LearningCalendar() {
       <div className="flex justify-center">
         <DayPicker
           classNames={{
-            today: "font-bold text-primary bg-primary/10",
-            selected: "bg-primary text-white font-bold",
-            root: "border rounded-xl p-4 shadow-sm bg-card text-card-foreground",
-          }}
+    months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+    month: "space-y-4",
+    caption: "flex justify-center pt-1 relative items-center",
+    caption_label: "text-sm font-medium font-headline",
+    nav: "space-x-1 flex items-center absolute right-1",
+    nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 flex items-center justify-center",
+    table: "w-full border-collapse space-y-1",
+    head_row: "flex",
+    head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+    row: "flex w-full mt-2",
+    cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+    day: "h-9 w-9 p-0 font-normal hover:bg-muted rounded-md flex items-center justify-center",
+    day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md",
+    day_today: "bg-accent text-accent-foreground font-bold",
+    day_outside: "text-muted-foreground opacity-50",
+    day_disabled: "text-muted-foreground opacity-50 text-slate-300",
+        }}
           mode="single"
           selected={selectedDay}
           onSelect={handleDayClick}
@@ -191,7 +204,7 @@ export default function LearningCalendar() {
             selected: 'rdp-day_selected',
             today: 'rdp-day_today',
           }}*/
-          className="rdp-custom"
+          className="p-3"
           disabled={(date) => date > new Date()} // Disable future dates
         />
       </div>

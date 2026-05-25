@@ -396,3 +396,5 @@
 .rdp-custom .rdp-day_partial {
   animation: status-change 0.3s ease-out;
 }
+
+export {};

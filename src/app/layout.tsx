@@ -1,4 +1,5 @@
 import "./globals.css";
+import 'react-day-picker/dist/style.css';
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import React from "react";
