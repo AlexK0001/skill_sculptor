@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     
     // Створення або оновлення юзера
-    const result = await users.findOneAndUpdate(
+    const rawResult = await users.findOneAndUpdate(
       { email: profile.email },
       {
         $set: {
@@ -74,56 +74,58 @@ export async function GET(request: NextRequest) {
       { upsert: true, returnDocument: "after" }
     );
 
-    // 👇 ФІКС ТИПІЗАЦІЇ ТУТ
-    const userDoc = result as any; 
+    // У MongoDB Node.js Driver v5 `findOneAndUpdate` повертає { value: {...} }, у v6 - одразу документ
+    // @ts-ignore - ігноруємо помилки типізації MongoDB
+    const userDoc = rawResult?.value ? rawResult.value : rawResult; 
     
     if (!userDoc || !userDoc._id) {
-      console.error("Failed to persist user in DB");
+      console.error("Failed to persist user in DB. Result:", rawResult);
       return NextResponse.redirect(new URL('/login?error=user_creation', request.url));
     }
 
-    // Зберігаємо змінні безпечно для TypeScript (знак оклику каже TS, що поле точно є)
-    const userId = userDoc._id!.toString();
-    const userEmail = userDoc!.email || profile.email;
-    const userName = userDoc!.name || profile.name;
+    // Безпечне вилучення даних
+    const userId = userDoc._id.toString();
+    const userEmail = userDoc.email || profile.email;
+    const userName = (userDoc.name || profile.name || '').replace(/'/g, "\\'");
 
     // Генеруємо фірмовий JWT токен застосунку
     const token = jwt.sign(
-      { userId: userDoc._id.toString(), email: userDoc.email, name: userDoc.name },
+      { userId, email: userEmail, name: userName },
       process.env.JWT_SECRET || "fallback-secret",
       { expiresIn: "7d" }
     );
     
     const isProduction = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
-
-    // ВАЖЛИВА ЗМІНА: Повертаємо HTML сторінку, яка безпечно запише токен і закриється
-    // Це забезпечить щоб ваш "No stored token found" зник на фронті.
+    
     const htmlResponse = `
       <!DOCTYPE html>
       <html>
+        <head><title>Авторизація...</title></head>
         <body>
           <script>
-            // Синхронізуємо токен у localStorage, який очікує ваш Frontend 
-            localStorage.setItem('token', '${token}');
-            // Зберігаємо також дані про юзера
-            localStorage.setItem('user', JSON.stringify({ 
-              id: '${userDoc._id.toString()}',
-              name: '${userDoc.name ? userDoc.name.replace(/'/g, "\\'") : ''}',
-              email: '${userDoc.email}' 
-            }));
-            // Безпечно перенаправляємо на головну сторінку
-            window.location.href = '/';
+            try {
+              localStorage.setItem('token', '${token}');
+              localStorage.setItem('user', JSON.stringify({ 
+                id: '${userId}',
+                name: '${userName}',
+                email: '${userEmail}' 
+              }));
+              window.location.href = '/';
+            } catch (e) {
+              console.error('Local storage error:', e);
+              window.location.href = '/?error=storage';
+            }
           </script>
+          <p>Якщо вас не перенаправлено автоматично, <a href="/">натисніть тут</a>.</p>
         </body>
       </html>
     `;
 
     const response = new NextResponse(htmlResponse, {
       status: 200,
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
     });
 
-    // Також ставимо резервний httpOnly cookie про всяк випадок (для SSR запитів)
     response.cookies.set("token", token, {
       httpOnly: true,
       secure: isProduction,
@@ -132,12 +134,11 @@ export async function GET(request: NextRequest) {
       maxAge: 7 * 24 * 60 * 60,
     });
     
-    // Чистимо state
     response.cookies.delete("oauth_state");
     return response;
 
   } catch (err: any) {
-    console.error("Google OAuth callback CRITICAL error:", err.message);
+    console.error("Google OAuth callback CRITICAL error:", err.message, err.stack);
     return NextResponse.redirect(new URL('/login?error=server', request.url));
   }
 }
