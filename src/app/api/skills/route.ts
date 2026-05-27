@@ -1,59 +1,56 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSkillsCollection } from '@/lib/mongodb';
-import { skillDocumentToSkill, type SkillDocument } from '@/lib/types';
-import { requireAuth } from '@/lib/auth';
-import { withErrorHandler, APIError, ErrorCode } from '@/lib/error-handler';
-import { createSuccessResponse, sanitizeString } from '@/lib/validation-utils';
-import { z } from 'zod';
+import { ObjectId } from 'mongodb';
+import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '@/lib/constants';
 
-export const dynamic = 'force-dynamic';
+function getUserId(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+    return decoded.userId;
+  } catch (err) {
+    return null;
+  }
+}
 
-const CreateSkillSchema = z.object({
-  name: z.string().min(1).max(100).transform(s => sanitizeString(s) || ''),
-  description: z.string().max(500).optional().transform(s => s ? sanitizeString(s) : ''),
-  category: z.string().min(1).max(50).default('Загальне'),
-  tags: z.array(z.string()).optional().default([]),
-});
+export async function GET(request: NextRequest) {
+  const userId = getUserId(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-export const GET = withErrorHandler(async () => {
-  const user = await requireAuth() as any;
-  const collection = await getSkillsCollection();
+  try {
+    const skillsCollection = await getSkillsCollection();
+    const skills = await skillsCollection.find({ userId: new ObjectId(userId) }).toArray();
+    return NextResponse.json(skills);
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
 
-  const skillsDocs = await collection
-    .find({ userId: user.id || user._id })
-    .sort({ updatedAt: -1 })
-    .toArray();
+export async function POST(request: NextRequest) {
+  const userId = getUserId(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const skills = skillsDocs.map(doc => skillDocumentToSkill(doc as SkillDocument));
-
-  return createSuccessResponse({ skills });
-});
-
-export const POST = withErrorHandler(async (req: NextRequest) => {
-  const user = await requireAuth() as any;
-  const body = await req.json();
+  const body = await request.json();
+  const { name, description, category } = body;
   
-  // Валідація вручну через схему, щоб уникнути помилок з withRequestValidation wrapper
-  const validatedData = CreateSkillSchema.parse(body);
-  
-  const collection = await getSkillsCollection();
+  if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
-  const newSkill: Partial<SkillDocument> = {
-    ...validatedData,
-    userId: user.id || user._id,
-    level: 1,
-    xp: 0,
-    lastPracticed: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  const result = await collection.insertOne(newSkill as SkillDocument);
-  
-  const createdSkill = {
-    ...newSkill,
-    _id: result.insertedId,
-  };
-
-  return createSuccessResponse({ skill: skillDocumentToSkill(createdSkill as SkillDocument) }, 201);
-});
+  try {
+    const skillsCollection = await getSkillsCollection();
+    const result = await skillsCollection.insertOne({
+      userId: new ObjectId(userId),
+      name,
+      description: description || '',
+      category: category || '',
+      progress: 0,
+      createdAt: new Date()
+    });
+    
+    return NextResponse.json({ id: result.insertedId.toString(), name, description, category, progress: 0 });
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}

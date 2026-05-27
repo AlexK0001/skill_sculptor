@@ -1,13 +1,5 @@
 'use server';
 
-/**
- * @fileOverview A learning plan suggestion AI agent.
- *
- * - suggestLearningPlan - A function that suggests a personalized daily learning plan.
- * - SuggestLearningPlanInput - The input type for the suggestLearningPlan function.
- * - SuggestLearningPlanOutput - The return type for the suggestLearningPlan function.
- */
-
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
@@ -29,10 +21,6 @@ const SuggestLearningPlanOutputSchema = z.object({
 });
 export type SuggestLearningPlanOutput = z.infer<typeof SuggestLearningPlanOutputSchema>;
 
-export async function suggestLearningPlan(input: SuggestLearningPlanInput): Promise<SuggestLearningPlanOutput> {
-  return suggestLearningPlanFlow(input);
-}
-
 const prompt = ai.definePrompt({
   name: 'suggestLearningPlanPrompt',
   input: {schema: SuggestLearningPlanInputSchema},
@@ -52,7 +40,7 @@ Daily Plans: {{{dailyPlans}}}
 Suggest a detailed, step-by-step learning plan for the day that is tailored to the user's current state and long-term goals. Return the plan as a list of tasks.`,
 });
 
-const suggestLearningPlanFlow = ai.defineFlow(
+export const suggestLearningPlan = ai.defineFlow(
   {
     name: 'suggestLearningPlanFlow',
     inputSchema: SuggestLearningPlanInputSchema,

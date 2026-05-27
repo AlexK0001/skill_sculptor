@@ -10,8 +10,9 @@ import { Loader2 } from 'lucide-react';
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
-  
+  const { login, user } = useAuth();
+  const isAuthenticated = !!user;
+  const authLoading = false;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);

@@ -1,44 +1,47 @@
 'use client';
 
 import React from 'react';
-import ThemeToggle from '@/components/ThemeToggle';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
-import LogoutButton from '@/components/LogoutButton';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
+import { Button } from '@/components/ui/button';
+import { LogOut, User } from 'lucide-react';
 
 export default function HeaderContent() {
+  const { user, logout } = useAuth();
+
   return (
-    <header className="w-full border-b border-border/50 bg-transparent">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <a href="/" className="font-semibold text-lg">
-            Skill Sculptor
-          </a>
-        </div>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <AuthButtons />
+    <header className="fixed top-0 left-0 right-0 h-16 border-b border-border/50 bg-background/80 backdrop-blur-md z-50">
+      <div className="container mx-auto px-4 h-full flex items-center justify-between">
+        <Link href="/" className="text-xl font-bold tracking-tight text-primary">
+          SkillSculptor
+        </Link>
+        <div className="flex items-center gap-4">
+          {user ? (
+            <>
+              <Link href="/skills" className="text-sm font-medium hover:text-primary transition-colors">
+                Мої Навички
+              </Link>
+              <div className="flex items-center gap-2 pl-4 border-l border-border/50">
+                <span className="text-sm font-medium max-w-[150px] truncate">
+                  {user.name || user.email}
+                </span>
+                <Button variant="ghost" size="icon" onClick={() => logout()} title="Logout">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/login">Увійти</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/register">Реєстрація</Link>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
-}
-
-function AuthButtons() {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (isAuthenticated) {
-    return <LogoutButton />;
-  }
-
-  // Перевірка чи ми на сторінці логіну
-  if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-    return null;
-  }
-
-  return <GoogleSignInButton />;
 }

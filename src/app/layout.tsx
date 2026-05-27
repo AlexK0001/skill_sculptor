@@ -3,7 +3,6 @@ import 'react-day-picker/dist/style.css';
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import React from "react";
-import ThemeToggle from "@/components/ThemeToggle";
 import { AuthProvider } from "@/lib/auth-context";
 import { ReactQueryProvider } from '@/lib/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -30,7 +29,7 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#3399FF', // ← Перенесено сюди з metadata
+  themeColor: '#3399FF',
 };
 
 // Динамічний імпорт для компонентів з React hooks
@@ -43,13 +42,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="mobile-web-app-capable" content="yes" />
-      </head>
       <body className={inter.className}>
         <ErrorBoundary>
           <ReactQueryProvider>
@@ -67,7 +59,6 @@ export default function RootLayout({
   );
 }
 
-// Skeleton для header під час завантаження
 function HeaderSkeleton() {
   return (
     <header className="w-full border-b border-border/50 bg-transparent">
@@ -80,4 +71,4 @@ function HeaderSkeleton() {
       </div>
     </header>
   );
-} //
+}

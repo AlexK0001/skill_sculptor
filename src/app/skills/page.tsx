@@ -2,91 +2,176 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
-import { Skill } from '@/lib/types';
-import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Plus, Target, ArrowRight, Loader2, Calendar as CalendarIcon, BookOpen, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { Progress } from "@/components/ui/progress"
+import { DayPicker } from 'react-day-picker';
+import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function SkillsPage() {
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchSkills = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/skills');
-      
-      if (!response.ok) {
-        throw new Error(`Помилка сервера: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data && Array.isArray(data.skills)) {
-        setSkills(data.skills);
-      } else {
-        setSkills([]);
-      }
-    } catch (err) {
-      console.error('Помилка при завантаженні навичок:', err);
-      setError('Не вдалося завантажити навички. Перевірте з’єднання з базою даних.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  const { user, token } = useAuth();
+  const [skills, setSkills] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  
   useEffect(() => {
+    if (!token) return;
+    
+    async function fetchSkills() {
+      try {
+        const response = await fetch('/api/skills', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch skills');
+        const data = await response.json();
+        setSkills(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
     fetchSkills();
-  }, []);
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto py-8 px-4 space-y-8">
-      {/* Заголовок та кнопка створення */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Мої навички</h1>
-          <p className="text-muted-foreground">Керуйте своїм розвитком та відстежуйте прогрес.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Ваші Навички</h1>
+          <p className="text-muted-foreground mt-1">Оберіть навичку для того щоб побачити свій прогрес та плани.</p>
         </div>
-        
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={fetchSkills} disabled={isLoading}>
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button asChild>
-            <Link href="/skills/new">
-              <Plus className="w-4 h-4 mr-2" />
-              Додати навичку
-            </Link>
-          </Button>
-        </div>
+        <Button asChild>
+          <Link href="/skills/new">
+            <Plus className="mr-2 h-4 w-4" /> Додати Навичку
+          </Link>
+        </Button>
       </div>
 
-      {/* Стан помилки */}
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Помилка</AlertTitle>
-          <AlertDescription className="flex justify-between items-center">
-            {error}
-            <Button variant="link" onClick={fetchSkills} className="p-0 h-auto text-destructive underline">
-              Спробувати знову
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-8 flex items-center">
+          <AlertCircle className="w-5 h-5 mr-2" />
+          {error}
+        </div>
       )}
 
-      {/* Стан завантаження */}
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-          <p className="text-muted-foreground animate-pulse">Завантаження ваших навичок...</p>
-        </div>
+      {skills.length === 0 && !error ? (
+        <Card className="text-center py-20 bg-muted/20 border-dashed">
+          <CardHeader>
+            <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+              <Target className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">Ваш шлях скульптора починається тут</CardTitle>
+            <CardDescription className="text-lg">Ви ще не додали жодної навички.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild size="lg" className="mt-4">
+              <Link href="/skills/new">
+                <Plus className="mr-2 h-4 w-4" /> Створити першу навичку
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        /* Список навичок */
-        <SkillList skills={skills} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {skills.map(skill => (
+              <Card key={skill._id || skill.id} className="hover:border-primary/50 transition-colors flex flex-col">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex justify-between items-start">
+                    <span className="truncate pr-4">{skill.name}</span>
+                    <div className="bg-primary/10 text-primary text-xs font-semibold px-2 py-1 rounded">
+                      {skill.category || 'Загальне'}
+                    </div>
+                  </CardTitle>
+                  <CardDescription className="line-clamp-2 min-h-10 mt-2">
+                    {skill.description || 'Немає опису.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="mt-auto pt-0">
+                  <div className="flex justify-between items-center text-sm mb-2">
+                    <span className="text-muted-foreground font-medium">Прогрес рівня</span>
+                    <span className="font-bold">{skill.progress || 0}%</span>
+                  </div>
+                  <Progress value={skill.progress || 0} className="h-2 mb-6" />
+                  
+                  <div className="flex gap-2">
+                    <Button asChild variant="outline" className="w-full">
+                      <Link href={`/skills/${skill._id || skill.id}`}>
+                        Деталі
+                      </Link>
+                    </Button>
+                    <Button asChild className="w-full">
+                      <Link href={`/skills/${skill._id || skill.id}/plan`}>
+                        План
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="md:col-span-1 border-l pl-8 space-y-8">
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <CalendarIcon className="w-5 h-5 text-primary" /> Календар Навчання
+              </h3>
+              <div className="bg-card border rounded-xl p-4 shadow-sm w-full flex justify-center">
+                <DayPicker
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  className="rdp-custom"
+                  modifiers={{
+                    // Example mock modifiers, we can hook it to skills actual progress later
+                    completed: [new Date(Date.now() - 86400000 * 2), new Date(Date.now() - 86400000 * 3)],
+                    missed: [new Date(Date.now() - 86400000)],
+                  }}
+                  modifiersClassNames={{
+                    selected: 'my-selected',
+                    today: 'my-today'
+                  }}
+                />
+              </div>
+              {selectedDate && (
+                <div className="mt-4 text-sm text-center">
+                  Обрано: <span className="font-medium text-primary">{format(selectedDate, 'PPP')}</span>
+                </div>
+              )}
+            </div>
+            
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-md flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-primary" /> Ресурси
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Оберіть навичку і перейдіть в &quot;Деталі&quot;, щоб згенерувати персоналізований план навчання та знайти корисні ресурси.
+                </p>
+                <Button variant="link" className="px-0 h-auto font-semibold">
+                  Дізнатись більше <ArrowRight className="ml-1 w-3 h-3" />
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );
