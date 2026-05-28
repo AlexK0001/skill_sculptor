@@ -43,8 +43,8 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
         preferences: fetchedSkill.description || 'General approach',
         strengths: '',
         weaknesses: '',
-        age: 25,
-        gender: 'Not specified',
+        age: Number(user?.age) || 25,
+        gender: user?.gender || 'Not specified',
         level: fetchedSkill.level
       };
 

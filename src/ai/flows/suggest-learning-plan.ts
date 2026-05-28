@@ -45,7 +45,11 @@ Skill Level: {{{level}}}
 Current Mood: {{{mood}}}
 Daily Plans: {{{dailyPlans}}}
 
-Suggest a detailed, step-by-step learning plan for the day that is tailored to the user's level (e.g. Beginner vs Expert needs different resources!) and current state. For each step, provide a valid URL 'link' to a real, helpful public resource (like a specific YouTube search url, Wikipedia, or offical documentation) that will help them learn.`,
+Suggest a highly specific, actionable, and detailed learning plan for today.
+CRITICAL: The resources you provide MUST be high quality, real, and specialized. 
+- For programming concepts, prefer links to StackOverflow, MDN Web Docs, official documentation (like React.dev, python.org), or specific high-quality tutorials. 
+- DO NOT just link to a generic Wikipedia page, or the youtube homepage. Link to a SPECIFIC search query or a likely existing guide that is directly relevant to the user's learning goal and current skill level.
+- The plan should be realistic to accomplish today based on the user's daily plans and mood.`,
 });
 
 export const suggestLearningPlan = ai.defineFlow(

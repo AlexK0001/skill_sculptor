@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 export default function NewSkillPage() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, isLoading } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,6 +23,20 @@ export default function NewSkillPage() {
     category: '',
     level: 'Новачок (0-6міс)'
   });
+
+  React.useEffect(() => {
+    if (!isLoading && !token) {
+      router.push('/login');
+    }
+  }, [isLoading, token, router]);
+
+  if (isLoading || !token) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           dailyPlans,
           level: level || 'Спеціаліст'
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), 8000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), 25000))
       ])) as any;
       
       aiPlan = aiResponse.learningPlan;

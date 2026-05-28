@@ -16,7 +16,7 @@ const translations: Record<Language, Record<string, string>> = {
     'skills': 'Мої навички',
     'logout': 'Вийти',
     'focus': 'Поточний фокус',
-    // add more if needed
+    'profile': 'Мій профіль'
   },
   en: {
     'login': 'Login',
@@ -24,6 +24,7 @@ const translations: Record<Language, Record<string, string>> = {
     'skills': 'My Skills',
     'logout': 'Logout',
     'focus': 'Current focus',
+    'profile': 'My Profile'
   }
 };
 

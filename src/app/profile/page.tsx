@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 export default function ProfilePage() {
   const { user, login, token } = useAuth();
   const [name, setName] = useState(user?.name || '');
+  const [age, setAge] = useState(user?.age || '');
+  const [gender, setGender] = useState(user?.gender || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -21,11 +23,10 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, age, gender })
       });
       if (res.ok) {
-        const data = await res.json();
-        login(token as string, { ...user, name });
+        login(token as string, { ...user, name, age, gender });
         setMessage('Профіль успішно оновлено!');
       } else {
         setMessage('Помилка оновлення профілю.');
@@ -56,6 +57,29 @@ export default function ProfilePage() {
             placeholder="Ваше ім&apos;я" 
             className="mt-1"
           />
+        </div>
+        <div>
+          <Label>Вік</Label>
+          <Input 
+            type="number"
+            value={age} 
+            onChange={(e) => setAge(e.target.value)} 
+            placeholder="Ваш вік" 
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label>Стать</Label>
+          <select 
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="w-full flex h-10 mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="">Не вказано</option>
+            <option value="Чоловіча">Чоловіча</option>
+            <option value="Жіноча">Жіноча</option>
+            <option value="Інша">Інша</option>
+          </select>
         </div>
         {message && <p className="text-sm text-primary">{message}</p>}
         <Button onClick={handleSave} disabled={loading}>

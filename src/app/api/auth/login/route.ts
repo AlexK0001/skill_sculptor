@@ -24,7 +24,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
     }
 
-    const userData = { id: user._id.toString(), email: user.email, name: user.name };
+    const userData = { 
+      id: user._id.toString(), 
+      email: user.email, 
+      name: user.name,
+      age: user.age,
+      gender: user.gender
+    };
     const token = jwt.sign({ userId: userData.id }, JWT_SECRET, { expiresIn: '7d' });
 
     return NextResponse.json({ token, user: userData });

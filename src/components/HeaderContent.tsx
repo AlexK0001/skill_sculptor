@@ -57,7 +57,7 @@ export default function HeaderContent() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href="/profile">Мій профіль</Link>
+                    <Link href="/profile">{t('profile') || 'Мій профіль'}</Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

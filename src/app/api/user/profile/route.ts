@@ -21,12 +21,12 @@ export async function PUT(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { name } = await request.json();
+    const { name, age, gender } = await request.json();
     const usersCollection = await getUsersCollection();
     
     await usersCollection.updateOne(
       { _id: new ObjectId(userId) },
-      { $set: { name } }
+      { $set: { name, age, gender } }
     );
     
     return NextResponse.json({ success: true });
