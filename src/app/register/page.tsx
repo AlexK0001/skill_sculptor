@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 
+import { GoogleOAuthButton } from '@/components/GoogleOAuthButton';
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -70,6 +72,18 @@ export default function RegisterPage() {
           </div>
           <Button type="submit" className="w-full">Зареєструватися</Button>
         </form>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">Або</span>
+          </div>
+        </div>
+        
+        <GoogleOAuthButton text="Зареєструватися через Google" />
+
         <div className="mt-4 text-center text-sm">
           Вже є акаунт? <Link href="/login" className="text-primary hover:underline">Увійти</Link>
         </div>

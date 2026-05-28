@@ -1,144 +1,101 @@
-import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
-import { getUsersCollection } from "@/lib/mongodb";
+import { NextRequest, NextResponse } from 'next/server';
+import { getUsersCollection } from '@/lib/mongodb';
+import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '@/lib/constants';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams;
+  const code = searchParams.get('code');
+  const error = searchParams.get('error');
 
-export async function GET(request: NextRequest) {
+  const appUrl = process.env.APP_URL;
+  const baseUrl = appUrl?.endsWith('/') ? appUrl.slice(0, -1) : appUrl || '';
+  const redirectUri = `${baseUrl}/auth/google/callback`;
+
+  if (error) {
+    return new NextResponse(`Error from Google: ${error}`, { status: 400 });
+  }
+  if (!code) {
+    return new NextResponse('No authentication code provided', { status: 400 });
+  }
+
   try {
-    const url = new URL(request.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const cookieState = request.cookies.get("oauth_state")?.value;
-
-    if (!code || !state || !cookieState || state !== cookieState) {
-      console.error('OAuth Error: Значення State не збігається або відсутній Code');
-      return NextResponse.redirect(new URL('/login?error=oauth_state', request.url));
-    }
-
-    const redirectBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') 
-                         || `${url.protocol}//${url.host}`;
-    
-    // Обмін коду на токен доступу Google
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    // 1. Exchange code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID || "",
-        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-        redirect_uri: `${redirectBase}/api/auth/google/callback`,
-        grant_type: "authorization_code",
+        client_id: process.env.GOOGLE_CLIENT_ID || '',
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
       }),
     });
 
-    const tokenJson = await tokenRes.json();
-    
-    if (!tokenJson.access_token) {
-      console.error("Token exchange failed:", tokenJson);
-      return NextResponse.redirect(new URL('/login?error=token_exchange', request.url));
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok) {
+      console.error('Google token exchange failed:', tokenData);
+      return new NextResponse('Failed to exchange token', { status: 400 });
     }
 
-    // Запит інформації профілю
-    const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+    // 2. Fetch user profile from Google
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
-
-    const profile = await profileRes.json();
+    const profileData = await profileRes.json();
     
-    if (!profile.email) {
-      console.error('Email not returned by Google');
-      return NextResponse.redirect(new URL('/login?error=email_not_verified', request.url));
+    if (!profileRes.ok || !profileData.email) {
+      console.error('Google profile fetch failed:', profileData);
+      return new NextResponse('Failed to fetch user profile', { status: 400 });
     }
 
-    const users = await getUsersCollection();
-    const now = new Date();
-    
-    // Створення або оновлення юзера
-    const rawResult = await users.findOneAndUpdate(
-      { email: profile.email },
-      {
-        $set: {
-          name: profile.name,
-          picture: profile.picture,
-          oauthProvider: "google",
-          oauthId: profile.sub,
-          updatedAt: now,
-        },
-        $setOnInsert: {
-          email: profile.email,
-          createdAt: now,
-        },
-      },
-      { upsert: true, returnDocument: "after" }
-    );
+    const email = profileData.email;
+    const name = profileData.name || '';
 
-    // У MongoDB Node.js Driver v5 `findOneAndUpdate` повертає { value: {...} }, у v6 - одразу документ
-    // @ts-ignore - ігноруємо помилки типізації MongoDB
-    const userDoc = rawResult?.value ? rawResult.value : rawResult; 
-    
-    if (!userDoc || !userDoc._id) {
-      console.error("Failed to persist user in DB. Result:", rawResult);
-      return NextResponse.redirect(new URL('/login?error=user_creation', request.url));
+    // 3. Find or Create User
+    const usersCollection = await getUsersCollection();
+    let user = await usersCollection.findOne({ email });
+
+    if (!user) {
+      // Create user without password for OAuth users
+      const result = await usersCollection.insertOne({
+        email,
+        name,
+        authProvider: 'google',
+        createdAt: new Date(),
+      });
+      user = { _id: result.insertedId, email, name };
     }
 
-    // Безпечне вилучення даних
-    const userId = userDoc._id.toString();
-    const userEmail = userDoc.email || profile.email;
-    const userName = (userDoc.name || profile.name || '').replace(/'/g, "\\'");
+    // 4. Generate custom JWT
+    const userData = { id: user._id.toString(), email: user.email, name: user.name };
+    const siteToken = jwt.sign({ userId: userData.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Генеруємо фірмовий JWT токен застосунку
-    const token = jwt.sign(
-      { userId, email: userEmail, name: userName },
-      process.env.JWT_SECRET || "fallback-secret",
-      { expiresIn: "7d" }
-    );
-    
-    const isProduction = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
-    
-    const htmlResponse = `
-      <!DOCTYPE html>
+    // 5. Send postMessage to opener
+    return new NextResponse(`
       <html>
-        <head><title>Авторизація...</title></head>
-        <body>
-          <script>
-            try {
-              localStorage.setItem('token', '${token}');
-              localStorage.setItem('user', JSON.stringify({ 
-                id: '${userId}',
-                name: '${userName}',
-                email: '${userEmail}' 
-              }));
-              window.location.href = '/';
-            } catch (e) {
-              console.error('Local storage error:', e);
-              window.location.href = '/?error=storage';
-            }
-          </script>
-          <p>Якщо вас не перенаправлено автоматично, <a href="/">натисніть тут</a>.</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: 'OAUTH_AUTH_SUCCESS',
+              payload: {
+                token: "${siteToken}",
+                user: ${JSON.stringify(userData)}
+              }
+            }, '*');
+            window.close();
+          } else {
+            window.location.href = '/login?error=Popup_lost';
+          }
+        </script>
+        <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
+          <p>Authentication successful! This window should close automatically.</p>
         </body>
       </html>
-    `;
-
-    const response = new NextResponse(htmlResponse, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' }
-    });
-
-    response.cookies.set("token", token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60,
-    });
-    
-    response.cookies.delete("oauth_state");
-    return response;
-
-  } catch (err: any) {
-    console.error("Google OAuth callback CRITICAL error:", err.message, err.stack);
-    return NextResponse.redirect(new URL('/login?error=server', request.url));
+    `, { headers: { 'Content-Type': 'text/html' } });
+  } catch (err) {
+    console.error('OAuth callback error:', err);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
