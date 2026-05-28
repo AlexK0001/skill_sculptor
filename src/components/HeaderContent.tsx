@@ -16,8 +16,13 @@ import {
 
 export default function HeaderContent() {
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 border-b border-border/50 bg-background/80 backdrop-blur-md z-50">
@@ -26,9 +31,12 @@ export default function HeaderContent() {
           SkillSculptor
         </Link>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title="Toggle theme">
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          <Button variant="ghost" size="icon" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} title="Toggle theme">
+            {mounted && resolvedTheme === 'dark' ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
             <span className="sr-only">Toggle theme</span>
           </Button>
 
@@ -39,8 +47,8 @@ export default function HeaderContent() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setLanguage('ua')}>Українська</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLanguage('en')}>English</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setLanguage('ua')}>Українська</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setLanguage('en')}>English</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -68,10 +76,10 @@ export default function HeaderContent() {
           ) : (
             <div className="flex items-center gap-2">
               <Button asChild variant="ghost" size="sm">
-                <Link href="/login">{t('login')}</Link>
+                <Link href="/login">{t('login') || 'Увійти'}</Link>
               </Button>
               <Button asChild size="sm">
-                <Link href="/register">{t('register')}</Link>
+                <Link href="/register">{t('register') || 'Реєстрація'}</Link>
               </Button>
             </div>
           )}

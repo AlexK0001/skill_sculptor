@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '@/lib/constants';
+import { suggestFullLearningPlan } from '@/ai/flows/suggest-full-learning-plan';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  let body: any = {};
   try {
     const authHeader = request.headers.get('authorization');
     let token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
@@ -15,40 +18,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { name, level } = body;
+    body = await request.json();
+    const { name, level, durationMonths = 3 } = body;
 
-    // Hardcode a full plan since we want a fast full plan. 
-    // Usually we would hit an AI flow here.
-    const steps = [
+    if (!name) {
+      return NextResponse.json({ error: 'Skill name required' }, { status: 400 });
+    }
+
+    console.log('[API] Zapyt do Genkit / Gemini (Full Plan)...');
+    
+    const aiResponse = (await Promise.race([
+      suggestFullLearningPlan({
+        topic: name,
+        level: level || 'Спеціаліст',
+        durationMonths: Number(durationMonths) || 3
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), 25000))
+    ])) as any;
+
+    if (!aiResponse || !aiResponse.plan) {
+      throw new Error('Invalid AI response structure');
+    }
+
+    return NextResponse.json({ success: true, plan: aiResponse.plan, durationMonths });
+  } catch (error: any) {
+    console.error('[API] Помилка у full-plan route:', error.message);
+    
+    // Fallback if AI fails
+    const fallbackSteps = [
       {
         phase: 'Фаза 1: Основи',
         items: [
-          { title: 'Вивчення базових концепцій', link: 'https://youtube.com' },
-          { title: 'Розуміння термінології', link: 'https://wikipedia.org' }
-        ]
-      },
-      {
-        phase: 'Фаза 2: Практика',
-        items: [
-          { title: 'Створення першого тестового проекту', link: 'https://github.com' },
-          { title: 'Повторення пройденого', link: 'https://notion.so' }
-        ]
-      },
-      {
-        phase: 'Фаза 3: Просунутий рівень',
-        items: [
-          { title: 'Вивчення складних паттернів', link: 'https://medium.com' },
-          { title: 'Оптимізація та рефакторинг', link: 'https://youtube.com' }
+          { title: 'Вивчення базових концепцій (Fallback)', link: `https://www.google.com/search?q=${encodeURIComponent(body.name || 'Основи')}+basics` }
         ]
       }
     ];
 
-    return NextResponse.json({ success: true, plan: steps });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to generate plan', details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, plan: fallbackSteps, durationMonths: body.durationMonths || 3, isFallback: true });
   }
 }

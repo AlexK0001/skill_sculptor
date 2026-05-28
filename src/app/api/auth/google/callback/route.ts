@@ -69,7 +69,13 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Generate custom JWT
-    const userData = { id: user._id.toString(), email: user.email, name: user.name };
+    const userData = { 
+      id: user._id.toString(), 
+      email: user.email, 
+      name: user.name,
+      age: user.age,
+      gender: user.gender
+    };
     const siteToken = jwt.sign({ userId: userData.id }, JWT_SECRET, { expiresIn: '7d' });
 
     // 5. Send postMessage to opener

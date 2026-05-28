@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '@/lib/constants';
 // TODO: Перевірте чи вірний у вас шлях до функції suggestLearningPlan
-import { suggestLearningPlan } from '@/ai/flows/suggest-learning-plan'; 
+import { suggestLearningPlan } from '@/ai/flows/suggest-full-learning-plan'; 
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { mood, dailyPlans, learningGoal, preferences, strengths, weaknesses, age, gender, level } = body;
+    const { mood, dailyPlans, learningGoal, preferences, strengths, weaknesses, age, gender, level, fullPlanContext, completedTasksSummary } = body;
 
     if (!mood || !dailyPlans) {
       return NextResponse.json({ error: 'Mood and daily plans are required' }, { status: 400 });
@@ -70,7 +70,9 @@ export async function POST(request: NextRequest) {
           learningGoal: learningGoal || 'General Improvement',
           mood,
           dailyPlans,
-          level: level || 'Спеціаліст'
+          level: level || 'Спеціаліст',
+          fullPlanContext: fullPlanContext || '',
+          completedTasksSummary: completedTasksSummary || ''
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request Timeout')), 25000))
       ])) as any;

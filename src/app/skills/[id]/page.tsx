@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Target, ArrowLeft, Loader2, Play, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Loader2, Play, Circle } from 'lucide-react';
 import Link from 'next/link';
 import { Progress } from '@/components/ui/progress';
 
@@ -16,6 +16,7 @@ export default function SkillDetailsPage({ params }: { params: { id: string } })
   const [loading, setLoading] = useState(true);
   const [fullPlan, setFullPlan] = useState<any[]>([]);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [durationMonths, setDurationMonths] = useState(3);
 
   useEffect(() => {
     if (!token) return;
@@ -50,7 +51,7 @@ export default function SkillDetailsPage({ params }: { params: { id: string } })
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ name: skill.name, level: skill.level })
+        body: JSON.stringify({ name: skill.name, level: skill.level, durationMonths })
       });
       const data = await res.json();
       if (res.ok && data.plan) {
@@ -62,7 +63,7 @@ export default function SkillDetailsPage({ params }: { params: { id: string } })
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({ fullPlan: data.plan })
+          body: JSON.stringify({ fullPlan: data.plan, durationMonths: data.durationMonths })
         });
       }
     } catch(e) {
@@ -105,7 +106,7 @@ export default function SkillDetailsPage({ params }: { params: { id: string } })
         </div>
         <Button asChild size="lg" className="shrink-0">
           <Link href={`/skills/${params.id}/plan`}>
-            <Play className="mr-2 w-4 h-4" /> Згенерувати План (AI)
+            <Play className="mr-2 w-4 h-4" /> Згенерувати План на Сьогодні
           </Link>
         </Button>
       </div>
@@ -127,15 +128,26 @@ export default function SkillDetailsPage({ params }: { params: { id: string } })
           
           <Card>
             <CardHeader>
-              <CardTitle>Повний план (Глобальний)</CardTitle>
-              <CardDescription>Загальна структура для вивчення навички</CardDescription>
+              <CardTitle>Повний стратегічний план (Roadmap)</CardTitle>
+              <CardDescription>Загальна розподілена структура для вивчення навички</CardDescription>
             </CardHeader>
             <CardContent>
               {fullPlan.length === 0 ? (
                 <div className="space-y-4">
                   <p className="text-muted-foreground text-sm">
-                    Ви ще не створили повний стратегічний план.
+                    Ви ще не створили повний стратегічний план. Виберіть бажану тривалість навчання (у місяцях) та згенеруйте його.
                   </p>
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm font-medium">Тривалість (місяців):</label>
+                    <input 
+                      type="number" 
+                      min="3" 
+                      max="12" 
+                      value={durationMonths}
+                      onChange={(e) => setDurationMonths(parseInt(e.target.value) || 3)}
+                      className="border rounded px-2 py-1 w-20 text-center bg-background"
+                    />
+                  </div>
                   <Button onClick={loadFullPlan} disabled={generatingPlan} variant="outline">
                     {generatingPlan ? <Loader2 className="mr-2 w-4 h-4 animate-spin" /> : 'Згенерувати повний план'}
                   </Button>

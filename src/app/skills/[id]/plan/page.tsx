@@ -45,7 +45,9 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
         weaknesses: '',
         age: Number(user?.age) || 25,
         gender: user?.gender || 'Not specified',
-        level: fetchedSkill.level
+        level: fetchedSkill.level,
+        fullPlanContext: fetchedSkill.fullPlan ? JSON.stringify(fetchedSkill.fullPlan, null, 2) : '',
+        completedTasksSummary: fetchedSkill.activityLog ? JSON.stringify(fetchedSkill.activityLog, null, 2) : ''
       };
 
       const res = await fetch('/api/ai/daily-plan', {
@@ -106,10 +108,10 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight inline-flex items-center gap-2">
-          <Sparkles className="w-8 h-8 text-primary" /> AI План Навчання
+          <Sparkles className="w-8 h-8 text-primary" /> AI План Навчання (На Сьогодні)
         </h1>
         <p className="text-muted-foreground mt-2">
-          Згенеруйте персоналізований план на сьогодні в залежності від вашого стану та рівня.
+          Згенеруйте обсяг задач на сьогодні, який буде спиратися на ваш Глобальний план та ваш поточний стан.
         </p>
       </div>
 
@@ -139,7 +141,7 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
       ) : (
         <Card className="border-primary/50 shadow-sm">
           <CardHeader>
-            <CardTitle>Ваш план на сьогодні</CardTitle>
+            <CardTitle>Ваш щоденний план</CardTitle>
             <CardDescription>Відмічайте виконані пункти для заповнення вашого календаря.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -153,7 +155,7 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
                   <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                   {item.link && (
                     <a href={item.link} target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:underline mt-2 inline-block">
-                      Корисний ресурс (відкрити) 
+                      Корисний глибокий ресурс (відкрити) 
                     </a>
                   )}
                 </div>

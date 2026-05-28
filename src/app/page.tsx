@@ -53,12 +53,12 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button asChild size="lg" className="px-8">
-              <Link href="/skills">
+              <Link href={user ? "/skills" : "/login"}>
                 До моїх навичок <ArrowRight className="ml-2 w-4 h-4" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/skills/new">
+              <Link href={user ? "/skills/new" : "/login"}>
                 <Plus className="mr-2 w-4 h-4" /> Додати нову
               </Link>
             </Button>
