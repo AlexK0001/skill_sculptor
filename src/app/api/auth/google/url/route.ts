@@ -6,14 +6,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Google Client ID not configured' }, { status: 500 });
   }
 
-  const appUrl = process.env.APP_URL;
-  if (!appUrl) {
-    return NextResponse.json({ error: 'APP_URL not configured' }, { status: 500 });
-  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || req.nextUrl.origin;
 
   // Ensure no trailing slash
   const baseUrl = appUrl.endsWith('/') ? appUrl.slice(0, -1) : appUrl;
-  const redirectUri = `${baseUrl}/auth/google/callback`;
+  const redirectUri = `${baseUrl}/api/auth/google/callback`;
 
   const params = new URLSearchParams({
     client_id: clientId,

@@ -8,9 +8,9 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const error = searchParams.get('error');
 
-  const appUrl = process.env.APP_URL;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || req.nextUrl.origin;
   const baseUrl = appUrl?.endsWith('/') ? appUrl.slice(0, -1) : appUrl || '';
-  const redirectUri = `${baseUrl}/auth/google/callback`;
+  const redirectUri = `${baseUrl}/api/auth/google/callback`;
 
   if (error) {
     return new NextResponse(`Error from Google: ${error}`, { status: 400 });
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok) {
       console.error('Google token exchange failed:', tokenData);
-      return new NextResponse('Failed to exchange token', { status: 400 });
+      return new NextResponse(`Google Error: ${tokenData.error_description || tokenData.error}`, { status: 400 });
     }
 
     // 2. Fetch user profile from Google

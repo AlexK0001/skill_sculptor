@@ -31,7 +31,8 @@ export function GoogleOAuthButton({ text = "Увійти через Google" }: {
     try {
       const response = await fetch('/api/auth/google/url');
       if (!response.ok) {
-        throw new Error('Failed to start OAuth');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to start OAuth');
       }
       const { url } = await response.json();
       
@@ -39,9 +40,9 @@ export function GoogleOAuthButton({ text = "Увійти через Google" }: {
       if (!authWindow) {
         setError('Спливаюче вікно заблоковано браузером. Будь ласка, дозвольте спливаючі вікна для цього сайту.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Не вдалося підключитися до Google.');
+      setError(err.message || 'Не вдалося підключитися до Google.');
     } finally {
       setIsLoading(false);
     }
