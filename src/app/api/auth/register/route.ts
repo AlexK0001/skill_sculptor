@@ -1,67 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { RegisterSchema } from '@/lib/validation';
 import { getUsersCollection } from '@/lib/mongodb';
-import { userDocumentToUser, type UserDocument } from '@/lib/types';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '@/lib/constants';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const validatedData = RegisterSchema.parse(body);
+    const { email, password, name } = await request.json();
 
-    const users = await getUsersCollection();
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    }
+
+    const usersCollection = await getUsersCollection();
     
-    // Check if user exists
-    const existingUser = await users.findOne({ email: validatedData.email });
+    const existingUser = await usersCollection.findOne({ email });
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
     }
 
-    // Hash password and create user
-    const passwordHash = await bcrypt.hash(validatedData.password, 12);
-    const newUserDoc: Omit<UserDocument, '_id'> = {
-      email: validatedData.email,
-      name: validatedData.name,
-      passwordHash,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    const result = await users.insertOne(newUserDoc);
-    const createdUser = await users.findOne({ _id: result.insertedId }) as UserDocument;
-
-    const token = jwt.sign(
-      { userId: createdUser._id!.toString() },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    const user = userDocumentToUser(createdUser);
-    return NextResponse.json({ token, user }, { status: 201 });
-
-  } catch (error: any) {
-    if (error.name === 'ZodError') {
-      return NextResponse.json({
-        error: 'Validation failed',
-        details: error.errors.map((e: any) => ({
-          field: e.path.join('.'),
-          message: e.message
-        }))
-      }, { status: 400 });
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
     
+    const result = await usersCollection.insertOne({
+      email,
+      password: hashedPassword,
+      name: name || '',
+      createdAt: new Date()
+    });
+
+    const user = { id: result.insertedId.toString(), email, name };
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+    return NextResponse.json({ token, user });
+  } catch (error) {
     console.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

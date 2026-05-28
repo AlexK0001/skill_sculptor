@@ -29,3 +29,44 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const userId = getUserId(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  try {
+    const skillsCollection = await getSkillsCollection();
+    const result = await skillsCollection.deleteOne({
+      _id: new ObjectId(params.id),
+      userId: new ObjectId(userId)
+    });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: 'Not found or not yours' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const userId = getUserId(request);
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  try {
+    const body = await request.json();
+    const skillsCollection = await getSkillsCollection();
+    
+    // allow updating progress, plan, etc.
+    await skillsCollection.updateOne(
+      { _id: new ObjectId(params.id), userId: new ObjectId(userId) },
+      { $set: body }
+    );
+    
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}

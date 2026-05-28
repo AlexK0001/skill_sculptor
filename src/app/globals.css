@@ -32,3 +32,22 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+.calendar-green { 
+  background-color: theme('colors.green.500') !important; 
+  color: white !important; 
+  font-weight: bold; 
+  border-radius: 8px; 
+}
+.calendar-yellow { 
+  background-color: theme('colors.yellow.500') !important; 
+  color: white !important; 
+  font-weight: bold; 
+  border-radius: 8px; 
+}
+.calendar-red { 
+  background-color: theme('colors.destructive.DEFAULT', #ef4444) !important; 
+  color: white !important; 
+  font-weight: bold; 
+  border-radius: 8px; 
+}

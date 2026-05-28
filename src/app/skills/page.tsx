@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Plus, Target, ArrowRight, Loader2, Calendar as CalendarIcon, BookOpen, AlertCircle } from 'lucide-react';
+import { Plus, Target, ArrowRight, Loader2, Calendar as CalendarIcon, BookOpen, AlertCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { Progress } from "@/components/ui/progress"
 import { DayPicker } from 'react-day-picker';
@@ -18,13 +18,50 @@ export default function SkillsPage() {
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
+  // Compute modifiers dynamically
+  const modifiers = {
+    green: [] as Date[],
+    yellow: [] as Date[],
+    red: [] as Date[]
+  };
+
+  // Aggregate activity logs from all skills
+  const aggregatedDates: Record<string, { completed: number, total: number }> = {};
+  skills.forEach(skill => {
+    if (skill.activityLog) {
+      Object.keys(skill.activityLog).forEach(dateStr => {
+        if (!aggregatedDates[dateStr]) {
+          aggregatedDates[dateStr] = { completed: 0, total: 0 };
+        }
+        aggregatedDates[dateStr].completed += skill.activityLog[dateStr].completed || 0;
+        aggregatedDates[dateStr].total += skill.activityLog[dateStr].total || 0;
+      });
+    }
+  });
+
+  Object.keys(aggregatedDates).forEach(dateStr => {
+    const { completed, total } = aggregatedDates[dateStr];
+    const d = new Date(dateStr);
+    // adding timezone offset logic could be needed but generic mapping fits local standard
+    const adjustedDate = new Date(d.getTime() + d.getTimezoneOffset() * 60000); 
+
+    if (total > 0 && completed === total) {
+      modifiers.green.push(adjustedDate);
+    } else if (completed > 0 && completed < total) {
+      modifiers.yellow.push(adjustedDate);
+    } else if (total > 0 && completed === 0) {
+      modifiers.red.push(adjustedDate);
+    }
+  });
+  
   useEffect(() => {
     if (!token) return;
     
-    async function fetchSkills() {
+    const tokenStr = token;
+    async function fetchSkillsList() {
       try {
         const response = await fetch('/api/skills', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${tokenStr}` }
         });
         
         if (!response.ok) throw new Error('Failed to fetch skills');
@@ -37,8 +74,42 @@ export default function SkillsPage() {
       }
     }
     
-    fetchSkills();
+    fetchSkillsList();
   }, [token]);
+
+  const fetchSkills = async () => {
+    try {
+      const response = await fetch('/api/skills', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch skills');
+      const data = await response.json();
+      setSkills(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (skillId: string) => {
+    if (confirm("Ви впевнені, що хочете видалити цю навичку?")) {
+      try {
+        const response = await fetch(`/api/skills/${skillId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          fetchSkills();
+        } else {
+          setError('Не вдалося видалити навичку');
+        }
+      } catch (err) {
+        setError('Помилка сервера');
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -94,8 +165,13 @@ export default function SkillsPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="flex justify-between items-start">
                     <span className="truncate pr-4">{skill.name}</span>
-                    <div className="bg-primary/10 text-primary text-xs font-semibold px-2 py-1 rounded">
-                      {skill.category || 'Загальне'}
+                    <div className="flex gap-2">
+                       <div className="bg-primary/10 text-primary text-xs font-semibold px-2 py-1 rounded">
+                         {skill.category || 'Загальне'}
+                       </div>
+                       <Button variant="ghost" size="icon" onClick={() => handleDelete(skill._id || skill.id)} className="h-6 w-6">
+                         <Trash2 className="w-4 h-4 text-destructive" />
+                       </Button>
                     </div>
                   </CardTitle>
                   <CardDescription className="line-clamp-2 min-h-10 mt-2">
@@ -137,14 +213,13 @@ export default function SkillsPage() {
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   className="rdp-custom"
-                  modifiers={{
-                    // Example mock modifiers, we can hook it to skills actual progress later
-                    completed: [new Date(Date.now() - 86400000 * 2), new Date(Date.now() - 86400000 * 3)],
-                    missed: [new Date(Date.now() - 86400000)],
-                  }}
+                  modifiers={modifiers}
                   modifiersClassNames={{
                     selected: 'my-selected',
-                    today: 'my-today'
+                    today: 'my-today',
+                    green: 'calendar-green',
+                    yellow: 'calendar-yellow',
+                    red: 'calendar-red'
                   }}
                 />
               </div>

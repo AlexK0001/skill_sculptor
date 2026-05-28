@@ -17,12 +17,15 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(false);
   const [mood, setMood] = useState('Вмотивований');
   const [dailyPlans, setDailyPlans] = useState('Маю 2 години вільного часу ввечері');
-  const [plan, setPlan] = useState<string[]>([]);
+  const [plan, setPlan] = useState<{title: string, description: string, link: string}[]>([]);
+  const [completedItems, setCompletedItems] = useState<Record<number, boolean>>({});
   const [error, setError] = useState('');
+  const [skill, setSkill] = useState<any>(null);
 
   const generatePlan = async () => {
     setLoading(true);
     setError('');
+    setCompletedItems({});
     
     try {
       // First get the skill to know what the user wants to learn
@@ -30,17 +33,19 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!skillRes.ok) throw new Error('Skill not found');
-      const skill = await skillRes.json();
+      const fetchedSkill = await skillRes.json();
+      setSkill(fetchedSkill);
       
       const payload = {
         mood,
         dailyPlans,
-        learningGoal: skill.name,
-        preferences: skill.description || 'General approach',
+        learningGoal: fetchedSkill.name,
+        preferences: fetchedSkill.description || 'General approach',
         strengths: '',
         weaknesses: '',
         age: 25,
-        gender: 'Not specified'
+        gender: 'Not specified',
+        level: fetchedSkill.level
       };
 
       const res = await fetch('/api/ai/daily-plan', {
@@ -65,6 +70,32 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
     }
   };
 
+  const toggleTask = async (index: number) => {
+    const newCompleted = { ...completedItems, [index]: !completedItems[index] };
+    setCompletedItems(newCompleted);
+
+    // Calc today's progress
+    const total = plan.length;
+    const completedCount = Object.values(newCompleted).filter(Boolean).length;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    try {
+      const activityLog = skill?.activityLog || {};
+      activityLog[todayStr] = { completed: completedCount, total };
+      
+      await fetch(`/api/skills/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ activityLog })
+      });
+    } catch (e) {
+      console.error('Failed to log activity', e);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <Button variant="ghost" asChild className="mb-6 -ml-4 text-muted-foreground">
@@ -78,7 +109,7 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
           <Sparkles className="w-8 h-8 text-primary" /> AI План Навчання
         </h1>
         <p className="text-muted-foreground mt-2">
-          Згенеруйте персоналізований план на сьогодні в залежності від вашого стану.
+          Згенеруйте персоналізований план на сьогодні в залежності від вашого стану та рівня.
         </p>
       </div>
 
@@ -97,6 +128,7 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
               <Label>Які плани на день? (Скільки часу є?)</Label>
               <Textarea value={dailyPlans} onChange={(e) => setDailyPlans(e.target.value)} />
             </div>
+            {error && <p className="text-destructive text-sm mt-2">{error}</p>}
           </CardContent>
           <CardFooter>
             <Button onClick={generatePlan} disabled={loading} className="w-full">
@@ -108,13 +140,23 @@ export default function AIPlanPage({ params }: { params: { id: string } }) {
         <Card className="border-primary/50 shadow-sm">
           <CardHeader>
             <CardTitle>Ваш план на сьогодні</CardTitle>
-            <CardDescription>Ось що запропонував AI:</CardDescription>
+            <CardDescription>Відмічайте виконані пункти для заповнення вашого календаря.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {plan.map((item, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer">
-                <Circle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                <span className="text-sm">{item}</span>
+              <div key={i} className={`flex items-start gap-4 p-4 rounded-xl border transition-colors ${completedItems[i] ? 'bg-primary/5 border-primary/20' : 'bg-card hover:bg-muted/50'}`}>
+                <div className="mt-1 cursor-pointer" onClick={() => toggleTask(i)}>
+                  {completedItems[i] ? <CheckCircle2 className="w-6 h-6 text-primary" /> : <Circle className="w-6 h-6 text-muted-foreground" />}
+                </div>
+                <div className="flex-1">
+                  <h3 className={`font-semibold text-lg ${completedItems[i] ? 'line-through opacity-70 text-muted-foreground' : ''}`}>{item.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                  {item.link && (
+                    <a href={item.link} target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:underline mt-2 inline-block">
+                      Корисний ресурс (відкрити) 
+                    </a>
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>

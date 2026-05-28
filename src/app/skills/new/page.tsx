@@ -21,9 +21,10 @@ export default function NewSkillPage() {
     name: '',
     description: '',
     category: '',
+    level: 'Новачок (0-6міс)'
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -117,6 +118,22 @@ export default function NewSkillPage() {
             onChange={handleChange}
             rows={4}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="level" className="font-semibold text-lg">Питання: Який Ваш поточний рівень володіння навичкою?</Label>
+          <select 
+            id="level"
+            name="level"
+            value={formData.level}
+            onChange={handleChange}
+            className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="Новачок (0-6міс)">Новачок (0-6міс)</option>
+            <option value="Практик (6міс-1рік)">Практик (6міс-1рік)</option>
+            <option value="Спеціаліст (1-2роки)">Спеціаліст (1-2роки)</option>
+            <option value="Експерт (2+ роки)">Експерт (2+ роки)</option>
+          </select>
         </div>
 
         <div className="pt-4 flex items-center justify-between">

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
@@ -12,8 +12,34 @@ import {
   Trophy 
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/lib/auth-context';
+import { Progress } from "@/components/ui/progress";
 
 export default function HomePage() {
+  const { token, user } = useAuth();
+  const [skills, setSkills] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    
+    async function fetchSkills() {
+      try {
+        const response = await fetch('/api/skills', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSkills(data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    fetchSkills();
+  }, [token]);
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -82,12 +108,36 @@ export default function HomePage() {
               </Link>
             </div>
             
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-6">Готові продовжити вдосконалення?</p>
-              <Button asChild variant="secondary">
-                <Link href="/skills">Перейти до списку навичок</Link>
-              </Button>
-            </div>
+            {!user ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-6">Увійдіть, щоб бачити свій прогрес.</p>
+                <Button asChild variant="secondary">
+                  <Link href="/login">Увійти</Link>
+                </Button>
+              </div>
+            ) : skills.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-6">Ви ще не додали жодної навички. Готові розпочати?</p>
+                <Button asChild variant="secondary">
+                  <Link href="/skills/new">Додати першу навичку</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {skills.slice(0, 4).map((skill) => (
+                  <Card key={skill._id || skill.id} className="p-4 flex flex-col gap-4">
+                     <div className="flex justify-between items-center">
+                       <span className="font-semibold text-lg">{skill.name}</span>
+                       <span className="text-sm font-bold text-primary">{skill.progress || 0}%</span>
+                     </div>
+                     <Progress value={skill.progress || 0} className="h-2" />
+                     <Button asChild variant="outline" size="sm" className="mt-2 text-xs">
+                        <Link href={`/skills/${skill._id || skill.id}/plan`}>Продовжити план</Link>
+                     </Button>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>

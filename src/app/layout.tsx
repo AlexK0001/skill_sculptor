@@ -6,6 +6,8 @@ import React from "react";
 import { AuthProvider } from "@/lib/auth-context";
 import { ReactQueryProvider } from '@/lib/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ThemeProvider } from "@/components/theme-provider";
+import { LanguageProvider } from "@/lib/language-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,17 +45,21 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ErrorBoundary>
-          <ReactQueryProvider>
-            <AuthProvider>
-              <React.Suspense fallback={<HeaderSkeleton />}>
-                <DynamicHeader />
-              </React.Suspense>
-              <main className="pt-16">{children}</main>
-              <Toaster />
-            </AuthProvider>
-          </ReactQueryProvider>
-        </ErrorBoundary>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <ErrorBoundary>
+            <ReactQueryProvider>
+              <LanguageProvider>
+                <AuthProvider>
+                  <React.Suspense fallback={<HeaderSkeleton />}>
+                    <DynamicHeader />
+                  </React.Suspense>
+                  <main className="pt-16">{children}</main>
+                  <Toaster />
+                </AuthProvider>
+              </LanguageProvider>
+            </ReactQueryProvider>
+          </ErrorBoundary>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -13,11 +13,18 @@ const SuggestLearningPlanInputSchema = z.object({
   learningGoal: z.string().describe('What the user wants to learn.'),
   mood: z.string().describe('The user current mood.'),
   dailyPlans: z.string().describe('The user plans for the day.'),
+  level: z.string().optional().describe('The current skill level of the user.')
 });
 export type SuggestLearningPlanInput = z.infer<typeof SuggestLearningPlanInputSchema>;
 
+const LearningTaskSchema = z.object({
+  title: z.string().describe("The title of the task."),
+  description: z.string().describe("Detailed description of the task."),
+  link: z.string().url().describe("A helpful link or URL connected to this task (e.g. YouTube tutorial, MDN article, helpful blog post).")
+});
+
 const SuggestLearningPlanOutputSchema = z.object({
-  learningPlan: z.array(z.string()).describe('A list of suggested learning tasks for the day.'),
+  learningPlan: z.array(LearningTaskSchema).describe('A list of suggested learning tasks for the day.'),
 });
 export type SuggestLearningPlanOutput = z.infer<typeof SuggestLearningPlanOutputSchema>;
 
@@ -25,7 +32,7 @@ const prompt = ai.definePrompt({
   name: 'suggestLearningPlanPrompt',
   input: {schema: SuggestLearningPlanInputSchema},
   output: {schema: SuggestLearningPlanOutputSchema},
-  prompt: `You are a personalized learning plan assistant. Based on the user's information, mood, and daily plans, suggest a learning plan or activity for the day to help them achieve their learning goal.
+  prompt: `You are a personalized learning plan assistant. Based on the user's information, their current skill level, mood, and daily plans, suggest a structured learning plan for the day to help them achieve their learning goal.
 
 User's Name: {{{name}}}
 User's Gender: {{{gender}}}
@@ -34,10 +41,11 @@ User's Preferences: {{{preferences}}}
 User's Strengths: {{{strengths}}}
 User's Weaknesses: {{{weaknesses}}}
 Learning Goal: {{{learningGoal}}}
+Skill Level: {{{level}}}
 Current Mood: {{{mood}}}
 Daily Plans: {{{dailyPlans}}}
 
-Suggest a detailed, step-by-step learning plan for the day that is tailored to the user's current state and long-term goals. Return the plan as a list of tasks.`,
+Suggest a detailed, step-by-step learning plan for the day that is tailored to the user's level (e.g. Beginner vs Expert needs different resources!) and current state. For each step, provide a valid URL 'link' to a real, helpful public resource (like a specific YouTube search url, Wikipedia, or offical documentation) that will help them learn.`,
 });
 
 export const suggestLearningPlan = ai.defineFlow(

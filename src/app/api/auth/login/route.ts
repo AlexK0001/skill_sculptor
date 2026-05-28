@@ -1,73 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import { getUsersCollection } from '@/lib/mongodb';
-import { userDocumentToUser, type LoginRequest, type AuthResponse, type UserDocument } from '@/lib/types';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '@/lib/constants';
-import { checkAuthRateLimit, getClientIP } from '@/lib/auth-rate-limiter';
-
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  const clientIP = getClientIP(request);
-  checkAuthRateLimit(clientIP);
   try {
-    const body = await request.json();
-    const { email, password } = body;
+    const { email, password } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
     const usersCollection = await getUsersCollection();
-    
-    // Find user by email
-    const userDoc = (await usersCollection.findOne({ email })) as UserDocument | null;
-      
-    if (!userDoc) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+    const user = await usersCollection.findOne({ email });
+
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, userDoc.passwordHash);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
     }
 
-    const userId = userDoc._id ? userDoc._id.toString() : null;
-      if (!userId) {
-        return NextResponse.json({ error: 'Invalid user id' }, { status: 500 });
-      }
+    const userData = { id: user._id.toString(), email: user.email, name: user.name };
+    const token = jwt.sign({ userId: userData.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Create JWT token
-    const token = jwt.sign(
-      { userId: userId.toString() },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    const user = userDocumentToUser(userDoc);
-
-    return NextResponse.json({
-      token,
-      user,
-    });
-
+    return NextResponse.json({ token, user: userData });
   } catch (error) {
-    console.error('Error logging in user:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Login error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { name, description, category } = body;
+  const { name, description, category, level } = body;
   
   if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
@@ -45,11 +45,12 @@ export async function POST(request: NextRequest) {
       name,
       description: description || '',
       category: category || '',
+      level: level || 'Новачок (0-6міс)',
       progress: 0,
       createdAt: new Date()
     });
     
-    return NextResponse.json({ id: result.insertedId.toString(), name, description, category, progress: 0 });
+    return NextResponse.json({ id: result.insertedId.toString(), name, description, category, level, progress: 0 });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

@@ -5,20 +5,21 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
   const { login } = useAuth();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, name })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -35,9 +36,18 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-        <h1 className="mb-4 text-2xl font-bold text-center">Вхід</h1>
+        <h1 className="mb-4 text-2xl font-bold text-center">Реєстрація</h1>
         {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleRegister} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Ім&apos;я</label>
+            <input 
+              type="text" 
+              className="w-full rounded-md border p-2" 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input 
@@ -58,10 +68,10 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)} 
             />
           </div>
-          <Button type="submit" className="w-full">Увійти</Button>
+          <Button type="submit" className="w-full">Зареєструватися</Button>
         </form>
         <div className="mt-4 text-center text-sm">
-          Немає акаунту? <Link href="/register" className="text-primary hover:underline">Реєстрація</Link>
+          Вже є акаунт? <Link href="/login" className="text-primary hover:underline">Увійти</Link>
         </div>
       </div>
     </div>
